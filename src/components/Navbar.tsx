@@ -25,7 +25,7 @@ export default function Navbar() {
         <div className="container nav-container">
           <a href="#" className="logo">
             <span className="logo-icon">
-              <Image src="/beaver.jpg" alt="CrewLine" width={60} height={60} className="logo-img" />
+              <Image src="/beaver.png" alt="CrewLine" width={60} height={60} className="logo-img" />
             </span>
             <div className="logo-text">
               <span className="logo-crew">Crew</span>

@@ -1,0 +1,12 @@
+import "server-only";
+import type { DocumentSnapshot } from "../document-validation";
+import { brandHeader, dateText, documentHtml, safeText, signatureBlock, type DocumentAssets } from "./shared";
+
+const heading = "INTERNSHIP OFFER LETTER";
+const css = `.offer{position:relative;padding:20mm 19mm 18mm;min-height:297mm}.offer h1{margin:10px 0 28px;color:#123B70;font:700 24px Poppins,Arial,sans-serif;letter-spacing:.04em}.offer p{font-size:11px;line-height:1.75;color:#39465a}.offer .intro{font-size:13px}.offer table{width:100%;margin:24px 0;border-collapse:collapse;border:1px solid #DCE6F2}.offer th,.offer td{padding:10px 12px;border-bottom:1px solid #DCE6F2;text-align:left;font-size:10px}.offer th{width:34%;background:#EAF3FF;color:#123B70}.offer h2{margin:24px 0 8px;color:#123B70;font:700 14px Poppins,Arial,sans-serif}.offer footer{position:absolute;left:19mm;right:19mm;bottom:15mm;padding-top:8px;border-top:1px solid #DCE6F2;color:#64748B;font-size:8px}`;
+
+export function renderOfferLetter(snapshot: DocumentSnapshot, assets: DocumentAssets) {
+  const rows: [string, string][] = [["Internship role", snapshot.documentTitle], ["Department / domain", snapshot.domain], ["Duration", snapshot.duration], ["Start date", dateText(snapshot.startDate)], ["End date", dateText(snapshot.endDate)], ["Work mode", snapshot.workMode], ...(snapshot.stipend ? [["Stipend", snapshot.stipend] as [string, string]] : [])];
+  const content = `<main class="offer">${brandHeader(snapshot, assets)}<p class="eyebrow">INTERNSHIP OFFER</p><h1>${heading}</h1><p class="intro">Dear <strong>${safeText(snapshot.studentName)}</strong>,</p><p>We are pleased to offer you an internship with Crewline. Please review the details below.</p><table><tbody>${rows.map(([label, value]) => `<tr><th>${safeText(label)}</th><td>${safeText(value)}</td></tr>`).join("")}</tbody></table><h2>Offer terms</h2><p class="terms">${snapshot.terms ? safeText(snapshot.terms).replace(/\n/g, "<br/>") : "Please follow the program instructions shared by Crewline. This educational internship does not guarantee employment or placement."}</p><p class="closing">We look forward to seeing what you build.</p>${signatureBlock(snapshot, assets)}<footer>Document ID: ${safeText(snapshot.documentId)} · This offer letter is intended for the named student.</footer></main>`;
+  return documentHtml("portrait", heading, `${content}<style>${css}</style>`, assets);
+}

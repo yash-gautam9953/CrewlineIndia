@@ -1,7 +1,17 @@
 import type { Metadata } from "next";
+import { Nunito } from "next/font/google";
 import "./globals.css";
 import { SiteHeader } from "@/components/site-header";
 import { SiteFooter } from "@/components/site-footer";
+import { getSessionUser } from "@/lib/appwrite/session";
+import { isAdminIdentity } from "@/lib/authz";
+
+const nunito = Nunito({
+  subsets: ["latin"],
+  weight: ["400", "500", "600", "700", "800", "900"],
+  display: "swap",
+  variable: "--font-nunito",
+});
 
 export const metadata: Metadata = {
   metadataBase: new URL("https://crewline.me"),
@@ -18,11 +28,13 @@ export const metadata: Metadata = {
   robots: { index: true, follow: true },
 };
 
-export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
+export default async function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
+  const session = await getSessionUser();
+  const admin = Boolean(session?.user.emailVerification && isAdminIdentity(session.user.$id));
   return (
-    <html lang="en">
-      <body className="min-h-screen antialiased">
-        <SiteHeader />
+    <html lang="en" data-scroll-behavior="smooth">
+      <body className={`${nunito.variable} min-h-screen antialiased`}>
+        <SiteHeader loggedIn={Boolean(session)} admin={admin} />
         {children}
         <SiteFooter />
       </body>

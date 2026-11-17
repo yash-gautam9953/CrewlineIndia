@@ -37,6 +37,9 @@ export async function getPublishedInternships(limit = 6): Promise<InternshipResu
     const internships = response.rows.flatMap((row) => {
       const data = row as typeof row & Record<string, unknown>;
       if (typeof data.title !== "string" || typeof data.slug !== "string" || typeof data.domain !== "string") return [];
+      // Seed records are intentionally retained in Appwrite for local testing,
+      // but must never be presented as genuine opportunities to students.
+      if (/^test(?:\b|[-_])/i.test(data.title.trim()) || /^test(?:\b|[-_])/i.test(data.slug.trim())) return [];
       return [{
         id: row.$id,
         title: data.title,

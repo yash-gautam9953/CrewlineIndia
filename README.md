@@ -1,36 +1,46 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Crewline
 
-## Getting Started
+Crewline is a Next.js + Appwrite internship application portal. Students create an account, apply to a published internship, and view their own profile and application status. Admins review applications and send an offer email with program details and the WhatsApp/Google Form links. The rest of the internship process is handled outside the website.
 
-First, run the development server:
+## Run locally
 
-```bash
+```powershell
+npm install
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Open <http://localhost:3000>.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Appwrite configuration
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+Copy `.env.example` to `.env.local`, then set the endpoint, project ID, and server-only API key. Keep `.env.local` out of Git and never add the API key to a `NEXT_PUBLIC_` variable.
 
-## Learn More
+The server key needs the scopes used by this app:
 
-To learn more about Next.js, take a look at the following resources:
+- `databases.read`, `databases.write`
+- `tables.read`, `tables.write`
+- `columns.read`, `columns.write`
+- `indexes.read`, `indexes.write`
+- `rows.read`, `rows.write`
+- `buckets.read`, `buckets.write`
+- `users.write`, `sessions.write`
+- `messages.write`
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+To create or reconcile the Crewline database schema and storage buckets:
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+```powershell
+npm run setup:appwrite
+```
 
-## Deploy on Vercel
+The script creates missing resources and fills their IDs into `.env.local`. It does not seed sample records or delete existing resources. It can be rerun after a schema change to add missing columns or indexes.
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+To enable admin access, add the administrator's Appwrite account email or user ID to `CREWLINE_ADMIN_IDENTITIES` in `.env.local` as a comma-separated allowlist. A browser-supplied role is never trusted.
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+To send offer email, configure and enable an Email provider under **Appwrite Console → Messaging → Providers**. Appwrite Messaging sends to the selected applicant's account email. The sender address must be verified with the configured provider. Add the WhatsApp invitation link and, where needed, the Google Form link in the admin application screen.
+
+## Checks
+
+```powershell
+npm run lint
+npm run build
+```
