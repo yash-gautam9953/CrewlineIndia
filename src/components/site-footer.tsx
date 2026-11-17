@@ -1,6 +1,5 @@
 import Image from "next/image";
 import Link from "next/link";
-import { ArrowUpRight } from "lucide-react";
 
 export function SiteFooter() {
   return (
@@ -24,7 +23,7 @@ export function SiteFooter() {
           <ul className="mt-4 space-y-3 text-sm text-slate-300">
             <li><Link className="hover:text-white" href="/privacy">Privacy policy</Link></li>
             <li><Link className="hover:text-white" href="/terms">Terms and conditions</Link></li>
-            <li><a className="inline-flex items-center gap-1 hover:text-white" href="mailto:hello@crewline.me">Contact <ArrowUpRight size={14} /></a></li>
+            <li><Link className="hover:text-white" href="/contact">Contact Crewline</Link></li>
           </ul>
         </div>
       </div>

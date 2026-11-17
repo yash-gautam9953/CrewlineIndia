@@ -43,7 +43,6 @@ document.addEventListener('DOMContentLoaded', () => {
         entries.forEach(entry => {
             if (entry.isIntersecting) {
                 // Determine animation based on data-aos attribute
-                const animation = entry.target.getAttribute('data-aos');
                 const delay = entry.target.getAttribute('data-aos-delay') || 0;
                 
                 entry.target.style.transition = `all 0.8s cubic-bezier(0.175, 0.885, 0.32, 1.275) ${delay}ms`;

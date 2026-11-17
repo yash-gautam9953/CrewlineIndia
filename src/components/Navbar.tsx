@@ -39,7 +39,7 @@ export default function Navbar() {
             <a href="#problem">Why Us</a>
             <a href="#services">Services</a>
             <a href="#process">How It Works</a>
-            <a href="#contact" className="btn btn-primary">Let's Talk</a>
+            <a href="#contact" className="btn btn-primary">Let&apos;s Talk</a>
           </div>
           <button className="mobile-menu-btn" onClick={toggleMenu}>
             <i className={`fa-solid ${menuOpen ? 'fa-xmark' : 'fa-bars'}`}></i>
@@ -51,7 +51,7 @@ export default function Navbar() {
         <a href="#problem" onClick={closeMenu}>Why Us</a>
         <a href="#services" onClick={closeMenu}>Services</a>
         <a href="#process" onClick={closeMenu}>How It Works</a>
-        <a href="#contact" className="btn btn-primary" onClick={closeMenu}>Let's Talk</a>
+        <a href="#contact" className="btn btn-primary" onClick={closeMenu}>Let&apos;s Talk</a>
       </div>
     </>
   );
