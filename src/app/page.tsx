@@ -1,241 +1,88 @@
-import AnimatedSection from "@/components/AnimatedSection";
-import Image from "next/image";
+import Link from "next/link";
+import { ArrowDown, ArrowRight, ArrowUpRight, Award, BookOpenCheck, Braces, Cloud, Code2, Cpu, Database, ShieldCheck, Sparkles } from "lucide-react";
+import { getPublishedInternships } from "@/lib/internships";
+import { InternshipCard, InternshipStatus } from "@/components/internship-card";
 
-export default function Home() {
+const domains = [
+  { name: "Web development", icon: Code2, color: "blue" },
+  { name: "Artificial intelligence", icon: Cpu, color: "purple" },
+  { name: "Data science", icon: Database, color: "blue" },
+  { name: "Cloud computing", icon: Cloud, color: "purple" },
+  { name: "Cybersecurity", icon: ShieldCheck, color: "blue" },
+  { name: "Programming", icon: Braces, color: "purple" },
+];
+
+export default async function Home() {
+  const result = await getPublishedInternships(3);
   return (
     <main>
-      {/* Hero Section */}
-      <header className="hero">
-        <div className="container hero-container">
-          <AnimatedSection animation="fade-up" className="hero-content">
-            <div className="hero-badge">Based in Greater Noida | Expanding Pan-India</div>
-            <h1>Event & Volunteer <span className="highlight">Staffing Solutions</span></h1>
-            <p>Reliable event manpower, sourced and managed end-to-end. Say goodbye to last-minute scrambling and no-shows.</p>
-            <div className="hero-actions">
-              <a href="#contact" className="btn btn-primary btn-large">Hire Staff Now</a>
-              <a href="#services" className="btn btn-secondary btn-large">Explore Services</a>
+      <section className="hero-glow surface-grid relative overflow-hidden border-b border-slate-100">
+        <div className="mx-auto grid min-h-[650px] max-w-7xl items-center gap-14 px-5 py-20 sm:px-8 lg:grid-cols-[1.08fr_.92fr] lg:py-28">
+          <div className="fade-in relative z-10">
+            <div className="mb-7 inline-flex items-center gap-2 rounded-full border border-blue-100 bg-white/80 px-4 py-2 text-xs font-bold uppercase tracking-[.16em] text-blue-700 shadow-sm"><Sparkles size={14} /> Learn by doing</div>
+            <h1 className="max-w-3xl text-5xl font-bold leading-[1.06] tracking-[-.055em] text-navy sm:text-6xl lg:text-[4.4rem]">Build your skills.<br /><span className="bg-gradient-to-r from-brand to-purple bg-clip-text text-transparent">Gain real experience.</span><br />Get recognized.</h1>
+            <p className="mt-7 max-w-xl text-lg leading-8 text-slate-600">Explore technology internships, work on practical projects, develop industry-relevant skills, and earn verifiable certificates with Crewline.</p>
+            <div className="mt-9 flex flex-col gap-3 sm:flex-row">
+              <Link href="/internships" className="inline-flex items-center justify-center gap-2 rounded-full bg-brand px-7 py-4 text-sm font-semibold text-white shadow-xl shadow-blue-500/20 transition hover:-translate-y-0.5 hover:bg-blue-600">Explore internships <ArrowRight size={17} /></Link>
+              <Link href="/verify" className="inline-flex items-center justify-center gap-2 rounded-full border border-slate-200 bg-white px-7 py-4 text-sm font-semibold text-navy transition hover:border-slate-300 hover:bg-slate-50">Verify a certificate <ArrowUpRight size={17} /></Link>
             </div>
-          </AnimatedSection>
-          
-          <AnimatedSection animation="fade-left" className="hero-image" delay={200}>
-            <div className="mascot-wrapper">
-              <Image 
-                src="/beaver.jpg" 
-                alt="Crewline Beaver Mascot" 
-                width={400} 
-                height={400} 
-                className="mascot-image"
-                priority
-              />
-            </div>
-          </AnimatedSection>
-        </div>
-        <div className="curve-bottom">
-          <svg viewBox="0 0 1440 120" xmlns="http://www.w3.org/2000/svg">
-            <path d="M0,64L80,69.3C160,75,320,85,480,80C640,75,800,53,960,42.7C1120,32,1280,32,1360,32L1440,32L1440,120L1360,120C1280,120,1120,120,960,120C800,120,640,120,480,120C320,120,160,120,80,120L0,120Z" fill="#FFFFFF"></path>
-          </svg>
-        </div>
-      </header>
+            <div className="mt-11 flex items-center gap-3 text-sm text-slate-500"><span className="flex h-8 w-8 items-center justify-center rounded-full bg-blue-50 text-brand"><ShieldCheck size={16} /></span> Real learning. Transparent outcomes. Verifiable credentials.</div>
+          </div>
 
-      {/* Problem & Why Us Section */}
-      <section id="problem" className="section">
-        <div className="container">
-          <div className="two-col-layout">
-            <AnimatedSection animation="fade-right" className="problem-box card">
-              <h2>The Problem</h2>
-              <ul className="problem-list">
-                <li>
-                  <div className="icon-circle text-red"><i className="fa-regular fa-clock"></i></div>
-                  <p>Event organizers struggle to find reliable, well-briefed staff on short notice.</p>
-                </li>
-                <li>
-                  <div className="icon-circle text-red"><i className="fa-solid fa-user-xmark"></i></div>
-                  <p>No-shows and unprofessional volunteers hurt the event experience.</p>
-                </li>
-                <li>
-                  <div className="icon-circle text-red"><i className="fa-solid fa-face-frown"></i></div>
-                  <p>Last-minute scrambling reflects poorly on organizers.</p>
-                </li>
-              </ul>
-            </AnimatedSection>
-            
-            <AnimatedSection animation="fade-left" className="solution-box">
-              <div className="section-header align-left">
-                <h2>Why Crewline India <span className="highlight">✨</span></h2>
-                <p>We solve the chaos of event staffing with a structured, reliable approach.</p>
+          <div className="relative mx-auto w-full max-w-[540px] lg:ml-auto">
+            <div className="absolute -inset-8 rounded-[3rem] bg-gradient-to-br from-blue-100 via-transparent to-purple-100 blur-2xl" />
+            <div className="glass-card float relative rounded-[2rem] border border-white p-5 shadow-2xl shadow-slate-300/50 sm:p-7">
+              <div className="flex items-center justify-between border-b border-slate-100 pb-5">
+                <div><p className="text-xs font-semibold uppercase tracking-[.16em] text-slate-400">Your learning path</p><h2 className="mt-1 text-lg font-bold text-navy">From curious to capable</h2></div>
+                <span className="flex h-11 w-11 items-center justify-center rounded-2xl bg-blue-50 text-brand"><BookOpenCheck size={22} /></span>
               </div>
-              
-              <div className="features-grid">
-                <div className="feature-card">
-                  <div className="feature-icon"><i className="fa-solid fa-shield-check"></i></div>
-                  <h3>Reliability</h3>
-                  <p>Pre-vetted volunteer pool with a 10–15% standby buffer. No last-minute gaps.</p>
-                </div>
-                <div className="feature-card">
-                  <div className="feature-icon"><i className="fa-solid fa-user-tie"></i></div>
-                  <h3>Professionalism</h3>
-                  <p>Uniformed/branded staff, on-site supervisors, and post-event feedback reports.</p>
-                </div>
-                <div className="feature-card">
-                  <div className="feature-icon"><i className="fa-solid fa-bolt"></i></div>
-                  <h3>Speed</h3>
-                  <p>Able to scale staffing on short notice for exhibitions and large events.</p>
-                </div>
-                <div className="feature-card">
-                  <div className="feature-icon"><i className="fa-solid fa-map-location-dot"></i></div>
-                  <h3>Reach</h3>
-                  <p>Currently NCR-based, expanding pan-India as our business grows.</p>
-                </div>
-              </div>
-            </AnimatedSection>
+              <ol className="space-y-3 py-5">
+                {[
+                  ["01", "Choose a field", "Find a program that fits your goals", "bg-blue-50 text-brand"],
+                  ["02", "Build real projects", "Learn through guided assignments", "bg-purple-50 text-purple"],
+                  ["03", "Get recognized", "Earn a credential others can verify", "bg-indigo-50 text-indigo-600"],
+                ].map(([step, title, copy, tone]) => <li key={step} className="flex items-center gap-4 rounded-2xl border border-slate-100 bg-white p-4"><span className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-xl text-xs font-bold ${tone}`}>{step}</span><span className="min-w-0 flex-1"><span className="block text-sm font-bold text-navy">{title}</span><span className="mt-1 block text-xs leading-5 text-slate-500">{copy}</span></span><ArrowRight size={16} className="text-slate-300" /></li>)}
+              </ol>
+              <div className="flex items-center justify-between rounded-2xl bg-navy px-5 py-4 text-white"><div className="flex items-center gap-3"><span className="flex h-10 w-10 items-center justify-center rounded-xl bg-white/10 text-blue-300"><Award size={20} /></span><div><p className="text-xs text-slate-300">Your work, recognized</p><p className="mt-0.5 text-sm font-semibold">Verifiable certificates</p></div></div><ArrowUpRight size={19} className="text-blue-300" /></div>
+            </div>
+          </div>
+        </div>
+        <a href="#programs" className="absolute bottom-5 left-1/2 hidden -translate-x-1/2 items-center gap-2 text-xs font-semibold uppercase tracking-[.15em] text-slate-400 lg:flex">Scroll to explore <ArrowDown size={14} /></a>
+      </section>
+
+      <section id="programs" className="mx-auto max-w-7xl px-5 py-24 sm:px-8">
+        <div className="flex flex-col justify-between gap-5 sm:flex-row sm:items-end">
+          <div><p className="text-xs font-bold uppercase tracking-[.2em] text-brand">Start building</p><h2 className="mt-3 text-3xl font-bold tracking-tight text-navy sm:text-4xl">Featured internships</h2><p className="mt-3 max-w-xl leading-7 text-slate-600">Find a program where you can learn the fundamentals and put them into practice.</p></div>
+          <Link href="/internships" className="inline-flex items-center gap-2 text-sm font-semibold text-brand hover:text-blue-700">Browse all programs <ArrowRight size={16} /></Link>
+        </div>
+        <div className="mt-10 grid gap-5 md:grid-cols-2 lg:grid-cols-3">
+          {result.internships.map((internship) => <InternshipCard key={internship.id} internship={internship} />)}
+        </div>
+        {result.internships.length === 0 && <InternshipStatus status={result.status} />}
+      </section>
+
+      <section className="bg-cloud py-24">
+        <div className="mx-auto max-w-7xl px-5 sm:px-8">
+          <div className="max-w-2xl"><p className="text-xs font-bold uppercase tracking-[.2em] text-purple">Explore your direction</p><h2 className="mt-3 text-3xl font-bold tracking-tight text-navy sm:text-4xl">Build skills for the work ahead</h2><p className="mt-4 leading-7 text-slate-600">Choose a technology area to explore. Program availability and details are published in Crewline.</p></div>
+          <div className="mt-10 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            {domains.map(({ name, icon: Icon, color }) => <Link href={`/internships?domain=${encodeURIComponent(name)}`} key={name} className="group flex items-center justify-between rounded-2xl border border-slate-200 bg-white p-5 transition hover:-translate-y-1 hover:border-blue-200 hover:shadow-xl hover:shadow-blue-950/5"><span className="flex items-center gap-4"><span className={`flex h-12 w-12 items-center justify-center rounded-xl ${color === "blue" ? "bg-blue-50 text-brand" : "bg-purple-50 text-purple"}`}><Icon size={22} /></span><span className="font-semibold text-navy">{name}</span></span><ArrowUpRight size={18} className="text-slate-300 transition group-hover:text-brand" /></Link>)}
           </div>
         </div>
       </section>
 
-      {/* What We Do Section */}
-      <section id="services" className="section bg-light-green">
-        <div className="container">
-          <AnimatedSection animation="fade-up" className="section-header text-center">
-            <h2>What We Do</h2>
-            <p>Comprehensive staffing roles covered for any event size</p>
-          </AnimatedSection>
-          
-          <div className="services-grid">
-            <AnimatedSection animation="zoom-in" delay={100} className="service-card">
-              <div className="service-icon"><i className="fa-solid fa-id-badge"></i></div>
-              <h3>Registration & Badge Scanning</h3>
-            </AnimatedSection>
-            <AnimatedSection animation="zoom-in" delay={200} className="service-card">
-              <div className="service-icon"><i className="fa-solid fa-arrows-down-to-people"></i></div>
-              <h3>Ushers & Crowd Management</h3>
-            </AnimatedSection>
-            <AnimatedSection animation="zoom-in" delay={300} className="service-card">
-              <div className="service-icon"><i className="fa-solid fa-handshake-angle"></i></div>
-              <h3>Hospitality & Guest Relations</h3>
-            </AnimatedSection>
-            <AnimatedSection animation="zoom-in" delay={400} className="service-card">
-              <div className="service-icon"><i className="fa-solid fa-shop"></i></div>
-              <h3>Exhibitor / Stall Assistance</h3>
-            </AnimatedSection>
-            <AnimatedSection animation="zoom-in" delay={100} className="service-card">
-              <div className="service-icon"><i className="fa-solid fa-headset"></i></div>
-              <h3>Technical & AV Support</h3>
-            </AnimatedSection>
-            <AnimatedSection animation="zoom-in" delay={200} className="service-card">
-              <div className="service-icon"><i className="fa-solid fa-language"></i></div>
-              <h3>Multilingual / Interpreter Staff</h3>
-            </AnimatedSection>
-            <AnimatedSection animation="zoom-in" delay={300} className="service-card">
-              <div className="service-icon"><i className="fa-solid fa-clipboard-user"></i></div>
-              <h3>On-site Supervisors <br/><small>(1 per 10-15 staff)</small></h3>
-            </AnimatedSection>
-            <AnimatedSection animation="zoom-in" delay={400} className="service-card">
-              <div className="service-icon"><i className="fa-solid fa-rotate"></i></div>
-              <h3>Backup Staff <br/><small>on standby</small></h3>
-            </AnimatedSection>
-          </div>
+      <section className="mx-auto max-w-7xl px-5 py-24 sm:px-8">
+        <div className="grid gap-14 lg:grid-cols-[.8fr_1.2fr]">
+          <div><p className="text-xs font-bold uppercase tracking-[.2em] text-brand">How Crewline works</p><h2 className="mt-3 text-3xl font-bold tracking-tight text-navy sm:text-4xl">Learning that leads somewhere</h2><p className="mt-4 leading-7 text-slate-600">A clear path from choosing what to learn to demonstrating what you can do.</p><Link href="/about" className="mt-7 inline-flex items-center gap-2 text-sm font-semibold text-brand">More about Crewline <ArrowRight size={16} /></Link></div>
+          <ol className="grid gap-4 sm:grid-cols-3">
+            {[["01", "Explore", "Compare internship programs and choose your next skill area."], ["02", "Practice", "Work through practical tasks and submit projects for review."], ["03", "Show your work", "Meet program completion requirements and verify your certificate." ]].map(([num, title, copy]) => <li key={num} className="rounded-2xl border border-slate-200 p-6"><span className="text-xs font-bold tracking-[.15em] text-brand">{num}</span><h3 className="mt-6 text-lg font-bold text-navy">{title}</h3><p className="mt-3 text-sm leading-6 text-slate-600">{copy}</p></li>)}
+          </ol>
         </div>
       </section>
 
-      {/* Who We Serve Section */}
-      <section id="serve" className="section">
-        <div className="container">
-          <AnimatedSection animation="fade-up" className="section-header text-center">
-            <h2>Who We Serve</h2>
-          </AnimatedSection>
-          <div className="serve-grid">
-            <AnimatedSection animation="fade-up" delay={100} className="serve-item">
-              <i className="fa-solid fa-building-user"></i>
-              <span>Trade Shows & Exhibitions</span>
-            </AnimatedSection>
-            <AnimatedSection animation="fade-up" delay={200} className="serve-item">
-              <i className="fa-solid fa-chalkboard-user"></i>
-              <span>Corporate Conferences</span>
-            </AnimatedSection>
-            <AnimatedSection animation="fade-up" delay={300} className="serve-item">
-              <i className="fa-solid fa-guitar"></i>
-              <span>Concerts & Public Events</span>
-            </AnimatedSection>
-            <AnimatedSection animation="fade-up" delay={400} className="serve-item">
-              <i className="fa-solid fa-school"></i>
-              <span>College Fests</span>
-            </AnimatedSection>
-            <AnimatedSection animation="fade-up" delay={500} className="serve-item">
-              <i className="fa-solid fa-ring"></i>
-              <span>Weddings & Social Events</span>
-            </AnimatedSection>
-            <AnimatedSection animation="fade-up" delay={600} className="serve-item">
-              <i className="fa-solid fa-hand-holding-heart"></i>
-              <span>NGO & Govt Programs</span>
-            </AnimatedSection>
-          </div>
-        </div>
-      </section>
-
-      {/* How It Works */}
-      <section id="process" className="section bg-dark">
-        <div className="container">
-          <AnimatedSection animation="fade-up" className="section-header text-center light-text">
-            <h2>How It Works</h2>
-            <p>Seamless execution from request to report</p>
-          </AnimatedSection>
-          <div className="timeline">
-            <AnimatedSection animation="fade-up" delay={100} className="timeline-item">
-              <div className="step-num">1</div>
-              <div className="timeline-content">
-                <div className="step-icon"><i className="fa-solid fa-file-signature"></i></div>
-                <h3>Client shares event requirements</h3>
-                <p>We understand your event needs, roles & expectations.</p>
-              </div>
-            </AnimatedSection>
-            <AnimatedSection animation="fade-up" delay={200} className="timeline-item">
-              <div className="step-num">2</div>
-              <div className="timeline-content">
-                <div className="step-icon"><i className="fa-solid fa-magnifying-glass-chart"></i></div>
-                <h3>Crewline shortlists & briefs</h3>
-                <p>We select the right people and brief them thoroughly.</p>
-              </div>
-            </AnimatedSection>
-            <AnimatedSection animation="fade-up" delay={300} className="timeline-item">
-              <div className="step-num">3</div>
-              <div className="timeline-content">
-                <div className="step-icon"><i className="fa-solid fa-people-group"></i></div>
-                <h3>On-ground deployment</h3>
-                <p>Our team is deployed with on-site supervisors to ensure seamless execution.</p>
-              </div>
-            </AnimatedSection>
-            <AnimatedSection animation="fade-up" delay={400} className="timeline-item">
-              <div className="step-num">4</div>
-              <div className="timeline-content">
-                <div className="step-icon"><i className="fa-solid fa-file-contract"></i></div>
-                <h3>Post-event report & feedback</h3>
-                <p>We share a detailed report and gather feedback to improve every time.</p>
-              </div>
-            </AnimatedSection>
-          </div>
-        </div>
-      </section>
-
-      {/* Coverage and Momentum */}
-      <section className="section">
-        <div className="container">
-          <AnimatedSection animation="zoom-in" className="stats-banner">
-            <div className="stat-banner-item">
-              <i className="fa-solid fa-map-pin"></i>
-              <h4>Delhi NCR</h4>
-              <p>Current primary operating region</p>
-            </div>
-            <div className="stat-banner-item">
-              <i className="fa-solid fa-graduation-cap"></i>
-              <h4>4 Universities</h4>
-              <p>Active pipeline (Sharda, Galgotias, Amity, GL Bajaj)</p>
-            </div>
-            <div className="stat-banner-item">
-              <i className="fa-solid fa-handshake-angle"></i>
-              <h4>India Expo Mart</h4>
-              <p>Actively engaging for upcoming shows</p>
-            </div>
-          </AnimatedSection>
+      <section className="mx-auto max-w-7xl px-5 pb-24 sm:px-8">
+        <div className="relative overflow-hidden rounded-[2rem] bg-navy px-7 py-12 text-white sm:px-12 sm:py-16">
+          <div className="absolute -right-20 -top-32 h-80 w-80 rounded-full bg-purple/30 blur-3xl" />
+          <div className="relative flex flex-col justify-between gap-8 md:flex-row md:items-center"><div className="max-w-2xl"><p className="text-xs font-bold uppercase tracking-[.2em] text-blue-300">Proof that travels</p><h2 className="mt-3 text-3xl font-bold tracking-tight sm:text-4xl">Make your learning easy to verify.</h2><p className="mt-4 leading-7 text-slate-300">Crewline certificates include a public verification page, so anyone can confirm their status and program details.</p></div><Link href="/verify" className="inline-flex shrink-0 items-center justify-center gap-2 rounded-full bg-white px-6 py-4 text-sm font-semibold text-navy transition hover:bg-blue-50">Verify a certificate <ArrowUpRight size={17} /></Link></div>
         </div>
       </section>
     </main>
