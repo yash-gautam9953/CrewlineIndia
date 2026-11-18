@@ -49,6 +49,56 @@ export async function ensureEnrollmentForApprovedApplication(application: Applic
     }
   }
 
+  // Automatic domain task assignment
+  const tasksTable = process.env.APPWRITE_TASKS_TABLE_ID;
+  const taskAssignmentsTable = process.env.APPWRITE_TASK_ASSIGNMENTS_TABLE_ID;
+  let taskAssigned = false;
+  let publishedTasksCount = 0;
+  if (tasksTable) {
+    try {
+      const publishedTasks = await service.tablesDB.listRows({
+        databaseId: service.databaseId,
+        tableId: tasksTable,
+        queries: [
+          Query.equal("internshipId", application.internshipId),
+          Query.equal("isPublished", true),
+          Query.orderAsc("sequence"),
+          Query.limit(50),
+        ],
+      });
+      publishedTasksCount = publishedTasks.total;
+      if (publishedTasks.rows.length > 0) {
+        taskAssigned = true;
+        for (const task of publishedTasks.rows) {
+          const taskData = task as Record<string, unknown>;
+          if (taskData.assignmentMode === "selected_students" && taskAssignmentsTable) {
+            try {
+              await service.tablesDB.createRow({
+                databaseId: service.databaseId,
+                tableId: taskAssignmentsTable,
+                rowId: ID.unique(),
+                data: {
+                  taskId: task.$id,
+                  studentId: application.studentId,
+                  assignedBy: approvedBy || "system",
+                  assignedAt: new Date().toISOString(),
+                },
+                permissions: [Permission.read(Role.user(application.studentId))],
+              });
+            } catch (assignError) {
+              const code = typeof assignError === "object" && assignError !== null && "code" in assignError ? assignError.code : undefined;
+              if (code !== 409) console.error("[enrollment] Could not assign task to student:", assignError);
+            }
+          }
+        }
+      } else {
+        console.warn(`[enrollment] No published task found for internshipId ${application.internshipId}`);
+      }
+    } catch (taskError) {
+      console.error("[enrollment] Failed querying domain tasks:", taskError);
+    }
+  }
+
   await createNotification({ userId: application.studentId, eventKey: `enrollment-created:${row.$id}`, title: "Internship enrollment created", body: "Your internship schedule and project deadline are now available in your dashboard.", type: "enrollment", targetUrl: "/account", sendEmail: false }).catch(() => undefined);
-  return { row, created: true };
+  return { row, created: true, taskAssigned, publishedTasksCount };
 }

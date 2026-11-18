@@ -44,7 +44,7 @@ export function ApplicationForm({ internshipSlug, studentName, studentEmail, pro
       <label className="block text-sm font-medium text-slate-700 sm:col-span-2">A short note for Crewline <span className="font-normal text-slate-400">(optional)</span><textarea name="statement" maxLength={2000} rows={4} defaultValue="" className="focus-ring mt-2 w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm text-navy" placeholder="What would you like us to know about your application?" /></label>
     </div>
     {error && <p role="alert" className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{error}</p>}
-    <button disabled={busy} className="inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-xl bg-brand px-5 text-sm font-semibold text-white hover:bg-blue-600 disabled:cursor-not-allowed disabled:opacity-65 sm:w-auto" type="submit">{busy ? <LoaderCircle size={17} className="animate-spin" /> : null}{busy ? "Submitting…" : "Submit application"}{!busy && <ArrowRight size={17} />}</button>
-    <p className="text-xs leading-5 text-slate-500">Your application details are visible to authorized Crewline administrators and used to contact you about this internship.</p>
+    <button disabled={busy} className="inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-xl bg-brand px-5 text-sm font-semibold text-white hover:bg-blue-600 disabled:cursor-not-allowed disabled:opacity-65 sm:w-auto" type="submit">{busy ? <LoaderCircle size={17} className="animate-spin" /> : null}{busy ? "Enrolling…" : "Enroll in Internship"}{!busy && <ArrowRight size={17} />}</button>
+    <p className="text-xs leading-5 text-slate-500">Upon enrollment, your internship is immediately activated and your personalized offer letter and domain task become available in your dashboard.</p>
   </form>;
 }

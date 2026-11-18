@@ -1,0 +1,23 @@
+{
+  "projectId": "6afc10e40030343548a0",
+  "projectName": "Crewline",
+  "functions": [
+    {
+      "$id": "crewline-document-generator",
+      "name": "Crewline Document Generator",
+      "runtime": "node-20.0",
+      "path": "functions/crewline-document-generator",
+      "entrypoint": "src/main.js",
+      "ignore": [
+        "node_modules",
+        ".env"
+      ],
+      "execute": [
+        "users"
+      ],
+      "events": [],
+      "schedule": "",
+      "timeout": 60
+    }
+  ]
+}

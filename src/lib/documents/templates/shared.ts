@@ -1,7 +1,17 @@
 import "server-only";
 import type { DocumentSnapshot } from "../document-validation";
 
-export type DocumentAssets = { logo: string; signature: string; fonts: { interRegular: string; interBold: string; poppinsSemiBold: string; poppinsBold: string } };
+export type DocumentAssets = {
+  logo: string;
+  signature: string;
+  badge?: string;
+  fonts: {
+    interRegular: string;
+    interBold: string;
+    poppinsSemiBold: string;
+    poppinsBold: string;
+  };
+};
 export const escapeHtml = (value: string) => value.replace(/[&<>"']/g, (char) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[char]!);
 export const safeText = (value: string) => escapeHtml(value || "—");
 export const dateText = (value: string) => value ? new Date(value).toLocaleDateString("en-IN", { day: "2-digit", month: "long", year: "numeric", timeZone: "UTC" }) : "—";

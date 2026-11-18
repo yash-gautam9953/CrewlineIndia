@@ -1,0 +1,16 @@
+{
+  "name": "crewline-document-generator",
+  "version": "1.0.0",
+  "description": "Production Appwrite Function for generating Crewline Offer Letters, Internship Completion Certificates, and Project Completion Certificates",
+  "main": "src/main.js",
+  "type": "module",
+  "scripts": {
+    "start": "node src/main.js",
+    "test": "node --test src/tests/*.test.js"
+  },
+  "dependencies": {
+    "node-appwrite": "^31.3.0",
+    "playwright": "^1.65.1",
+    "qrcode": "^1.5.4"
+  }
+}

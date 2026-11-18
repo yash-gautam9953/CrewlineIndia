@@ -1,12 +1,349 @@
 import "server-only";
 import type { DocumentSnapshot } from "../document-validation";
-import { brandHeader, dateText, documentHtml, safeText, signatureBlock, verificationBlock, type DocumentAssets } from "./shared";
+import { dateText, documentHtml, safeText, type DocumentAssets } from "./shared";
 
-const heading = "PROJECT COMPLETION CERTIFICATE";
-const css = `.certificate{height:210mm;padding:13mm;background:#fff}.frame{position:relative;height:100%;padding:10mm 16mm;border:2px solid #123B70;outline:1px solid #DCE6F2;outline-offset:-8px;text-align:center}.certificate .brand{max-width:170mm;margin:auto;border:0;justify-content:flex-start;text-align:left}.certificate .brand .doc-id{margin-left:auto}.certificate .eyebrow{margin:5mm 0 2mm}.certificate h1{margin:3mm auto 5mm;color:#123B70;font:700 22px Poppins,Arial,sans-serif;letter-spacing:.07em}.certifies{margin:0;color:#64748B;font-size:11px}.student{margin:2mm 0;color:#1769D2;font:700 29px Poppins,Arial,sans-serif}.body{max-width:165mm;margin:2mm auto 6mm;color:#39465a;font-size:12px;line-height:1.7}.dates{display:flex;justify-content:center;gap:8mm;margin:5mm auto;width:100%}.dates div{min-width:31mm;padding:3mm 4mm;border:1px solid #DCE6F2;border-radius:4px;background:#EAF3FF}.dates small{display:block;color:#64748B;font-size:7px;font-weight:700;letter-spacing:.1em}.dates strong{display:block;margin-top:2mm;color:#123B70;font-size:10px}.cert-bottom{display:flex;align-items:flex-end;justify-content:space-between;margin:4mm auto 0;max-width:165mm}.cert-bottom .signature{margin:0}.verification{display:flex;align-items:center;gap:8px;max-width:70mm;text-align:left;color:#64748B;font-size:8px;line-height:1.5;overflow-wrap:anywhere}.verification img{width:25mm;height:25mm}.certificate-id{position:absolute;bottom:4mm;left:0;right:0;color:#64748B;font-size:8px}`;
+const heading = "CERTIFICATE OF PROJECT COMPLETION";
+
+const projCss = `
+  :root {
+    --navy: #111d50;
+    --ink: #253253;
+    --blue: #0879f9;
+    --purple: #5710e8;
+    --pale: #edf4ff;
+    --line: #c8d6f7;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; min-height: 100%; }
+  body {
+    padding: 0;
+    background: #fff;
+    color: var(--ink);
+    font-family: "Segoe UI", Arial, Helvetica, sans-serif;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+  .certificate {
+    position: relative;
+    isolation: isolate;
+    width: 297mm;
+    height: 210mm;
+    margin: 0 auto;
+    padding: 8mm 11mm 8mm;
+    overflow: hidden;
+    background:
+      radial-gradient(ellipse at 88% 50%, rgba(220,232,255,.4), transparent 26%),
+      #fff;
+  }
+  .frame {
+    position: absolute;
+    inset: 3.5mm;
+    width: calc(100% - 7mm);
+    height: calc(100% - 7mm);
+    z-index: 0;
+    pointer-events: none;
+    overflow: visible;
+  }
+  .corner { position: absolute; z-index: -1; pointer-events: none; }
+  .corner-top { top: 0; left: 0; width: 76mm; height: 55mm; }
+  .corner-bottom { right: 0; bottom: 0; width: 76mm; height: 55mm; }
+  .content { position: relative; z-index: 1; height: 100%; }
+  .header {
+    position: relative;
+    display: flex;
+    justify-content: flex-end;
+    align-items: center;
+    min-height: 22mm;
+    margin: 0 10mm 2mm;
+  }
+  .brand { position: absolute; left: 50%; display: flex; align-items: center; transform: translateX(-50%); }
+  .brand img { display: block; width: 86mm; max-height: 20mm; object-fit: contain; }
+  .meta {
+    min-width: 66mm;
+    padding: 0 0 0 8mm;
+    border-left: .35mm solid #9aa8d1;
+    color: var(--navy);
+  }
+  .meta-row {
+    display: flex;
+    align-items: center;
+    gap: 3mm;
+    margin: 0 0 2.6mm;
+    font-size: 11.5pt;
+    font-weight: 700;
+    line-height: 1.25;
+    white-space: nowrap;
+  }
+  .meta-row:last-child { margin-bottom: 0; }
+  .meta svg { width: 5mm; height: 5mm; flex: none; stroke: var(--navy); }
+  .heading { position: relative; max-width: 224mm; margin: 4mm auto 0; text-align: center; }
+  .eyebrow {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 5mm;
+    margin: 0 0 3.5mm;
+    color: var(--navy);
+    font-size: 19pt;
+    font-weight: 400;
+    letter-spacing: 5px;
+    line-height: 1.1;
+  }
+  .laurel { width: 9mm; height: 12mm; flex: none; }
+  h1 {
+    margin: 0;
+    color: var(--navy);
+    font-size: 29pt;
+    font-weight: 800;
+    letter-spacing: .2px;
+    line-height: 1.08;
+  }
+  h1 span {
+    color: var(--purple);
+    background: linear-gradient(90deg, #0879f9, #6810e9);
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+  }
+  .title-rule {
+    width: 47mm;
+    height: 1.4mm;
+    margin: 3.5mm auto 3mm;
+    border-radius: 5mm;
+    background: linear-gradient(90deg, var(--blue), var(--purple));
+  }
+  .certify { margin: 0 0 2mm; color: var(--navy); font-size: 15pt; font-weight: 700; }
+  .student-name {
+    margin: 0.5mm auto 1.5mm;
+    max-width: 182mm;
+    color: #111c4d;
+    font-family: Georgia, "Times New Roman", serif;
+    font-size: clamp(18pt, 2.6vw, 28pt);
+    font-style: italic;
+    font-weight: 700;
+    line-height: 1.15;
+    overflow-wrap: anywhere;
+  }
+  .name-rule { width: 164mm; max-width: 82%; margin: 0 auto 2.5mm; border-top: .35mm solid #aab7dc; }
+  .copy {
+    max-width: 195mm;
+    margin: 2mm auto 0;
+    color: var(--ink);
+    font-size: 13pt;
+    line-height: 1.2;
+    text-align: center;
+  }
+  .copy p { margin: 0 0 1.2mm; }
+  .copy strong { color: var(--navy); font-weight: 750; }
+  .token {
+    display: inline-block;
+    padding: .6mm 3.5mm;
+    border-radius: 4mm;
+    background: #e3edff;
+    color: #17295f;
+    font-weight: 700;
+    font-size: 13.5pt;
+    white-space: nowrap;
+  }
+  .token.project-token {
+    margin: 0.8mm 0 1.2mm;
+    padding: 0.8mm 4mm;
+    font-size: 13.5pt;
+    max-width: 185mm;
+    overflow-wrap: anywhere;
+    white-space: normal;
+    display: inline-block;
+  }
+  .seal {
+    position: absolute;
+    z-index: 2;
+    top: 54mm;
+    right: 1.5mm;
+    width: 52mm;
+    height: 71mm;
+    object-fit: contain;
+    filter: drop-shadow(0 1mm 1.5mm rgba(11,25,74,.2));
+  }
+  .verification {
+    position: absolute;
+    right: 28mm;
+    bottom: 8mm;
+    left: 12mm;
+    display: grid;
+    grid-template-columns: 31mm 1fr 1fr;
+    align-items: center;
+    min-height: 30mm;
+  }
+  .qr-wrap {
+    position: relative;
+    display: grid;
+    width: 30mm;
+    height: 30mm;
+    place-items: center;
+    border: .35mm solid #8aa8ff;
+    border-radius: 3mm;
+    background: #fff;
+    overflow: hidden;
+  }
+  .qr-wrap img { display: block; width: 27mm; height: 27mm; object-fit: contain; }
+  .verify-copy {
+    min-height: 20mm;
+    margin-left: 8mm;
+    padding: 0 8mm;
+    border-left: .35mm solid #6675ff;
+    border-right: .35mm solid #6675ff;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    gap: 1.5mm;
+  }
+  .verify-title { color: var(--navy); font-size: 13pt; font-weight: 800; }
+  .verify-hint { color: #485570; font-size: 11.5pt; }
+  .verify-url {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 2mm;
+    width: 100%;
+    padding: 1.4mm 3mm;
+    border-radius: 4mm;
+    background: #e4edff;
+    color: #263e7a;
+    font-size: 11.5pt;
+    font-weight: 700;
+    overflow-wrap: anywhere;
+  }
+  .verify-url svg { width: 4mm; height: 4mm; flex: none; stroke: #0879f9; }
+  .signature {
+    justify-self: end;
+    width: 64mm;
+    padding-top: 1mm;
+    text-align: center;
+    color: var(--navy);
+  }
+  .signature img { display: block; width: 41mm; height: 12mm; margin: 0 auto 1mm; object-fit: contain; }
+  .signature-line { width: 62mm; margin: 0 auto 1.5mm; border-top: .35mm solid #596b9c; }
+  .sign-name { margin-bottom: .5mm; font-size: 12pt; font-weight: 800; }
+  .sign-role { color: #4c5872; font-size: 11.5pt; line-height: 1.3; }
+`;
 
 export function renderProjectCertificate(snapshot: DocumentSnapshot, assets: DocumentAssets, qr: string) {
-  const relation = snapshot.internshipId ? ` as part of the <strong>${safeText(snapshot.documentTitle)}</strong> internship` : "";
-  const content = `<main class="certificate"><div class="frame">${brandHeader(snapshot, assets)}<p class="eyebrow">PROJECT · CRAFT · COMPLETION</p><h1>${heading}</h1><p class="certifies">This certificate is presented to</p><p class="student">${safeText(snapshot.studentName)}</p><p class="body">for completing and receiving approval for the project <strong>${safeText(snapshot.projectTitle)}</strong>${relation}.</p><div class="dates"><div><small>TECHNOLOGY / DOMAIN</small><strong>${safeText(snapshot.domain)}</strong></div><div><small>PROJECT APPROVAL DATE</small><strong>${dateText(snapshot.completionDate)}</strong></div></div><div class="cert-bottom">${signatureBlock(snapshot, assets)}${verificationBlock(snapshot, qr)}</div><p class="certificate-id">Certificate ID: ${safeText(snapshot.documentId)}</p></div></main>`;
-  return documentHtml("landscape", heading, `${content}<style>${css}</style>`, assets);
+  const sealHtml = assets.badge ? `<img class="seal" src="${assets.badge}" alt="Crewline project completion badge" />` : "";
+
+  const content = `
+  <main class="certificate">
+    <!-- Outer chamfered certificate frame with notched corners -->
+    <svg class="frame" viewBox="0 0 290 203" aria-hidden="true" preserveAspectRatio="none">
+      <path d="M 6 0 L 284 0 L 290 6 L 290 197 L 284 203 L 6 203 L 0 197 L 0 6 Z" stroke="#4256ff" stroke-width="0.35" fill="none"/>
+      <path d="M 6 0 H -1.5 M 0 6 V -1.5 M 284 0 H 291.5 M 290 6 V -1.5 M 284 203 H 291.5 M 290 197 V 204.5 M 6 203 H -1.5 M 0 197 V 204.5" stroke="#4256ff" stroke-width="0.35" fill="none"/>
+      <path d="M 6.8 1.5 L 283.2 1.5 L 288.5 6.8 L 288.5 196.2 L 283.2 201.5 L 6.8 201.5 L 1.5 196.2 L 1.5 6.8 Z" stroke="rgba(8,121,249,0.4)" stroke-width="0.25" fill="none"/>
+      <path d="M 5 2 H 2 V 5 M 285 2 H 288 V 5 M 285 201 H 288 V 198 M 5 201 H 2 V 198" stroke="#4256ff" stroke-width="0.25" fill="none"/>
+    </svg>
+
+    <!-- Top-Left Corner Fluid Wave -->
+    <svg class="corner corner-top" viewBox="0 0 300 220" preserveAspectRatio="none" aria-hidden="true">
+      <defs>
+        <linearGradient id="topBlue" x1="0" y1="0" x2="1" y2="1">
+          <stop offset="0" stop-color="#071d9a"/><stop offset="1" stop-color="#0879f9"/>
+        </linearGradient>
+        <linearGradient id="topPurple" x1="0" y1="0" x2="1" y2="1">
+          <stop offset="0" stop-color="#7410ed"/><stop offset="1" stop-color="#3510d2"/>
+        </linearGradient>
+      </defs>
+      <path d="M0 0H300C258 39 210 57 157 79C94 105 42 150 0 220Z" fill="url(#topBlue)"/>
+      <path d="M0 0H238C205 32 165 49 121 68C69 91 29 127 0 181Z" fill="url(#topPurple)"/>
+      <path d="M0 0H184C154 25 119 40 82 57C44 75 16 101 0 143Z" fill="#56aaff" opacity=".72"/>
+      <path d="M0 0H128C106 19 79 31 52 44C27 56 9 74 0 98Z" fill="#1029c7"/>
+    </svg>
+
+    <!-- Bottom-Right Corner Fluid Wave -->
+    <svg class="corner corner-bottom" viewBox="0 0 300 220" preserveAspectRatio="none" aria-hidden="true">
+      <defs>
+        <linearGradient id="bottomBlue" x1="0" y1="0" x2="1" y2="1">
+          <stop offset="0" stop-color="#57adff"/><stop offset="1" stop-color="#0879f9"/>
+        </linearGradient>
+        <linearGradient id="bottomPurple" x1="0" y1="0" x2="1" y2="1">
+          <stop offset="0" stop-color="#3010d4"/><stop offset="1" stop-color="#7210ed"/>
+        </linearGradient>
+      </defs>
+      <path d="M300 0V220H0C46 174 91 140 143 106C201 68 255 30 300 0Z" fill="url(#bottomBlue)"/>
+      <path d="M300 41V220H76C117 179 157 149 201 119C242 91 276 63 300 41Z" fill="url(#bottomPurple)"/>
+      <path d="M300 95V220H157C189 187 220 162 252 137C274 120 290 105 300 95Z" fill="#0879f9"/>
+      <path d="M300 151V220H224C247 196 269 173 286 156C292 151 297 147 300 144Z" fill="#3210d4"/>
+    </svg>
+
+    <div class="content">
+      <header class="header">
+        <div class="brand">
+          <img src="${assets.logo}" alt="CREWLINE — Learn. Build. Get Recognized." />
+        </div>
+        <div class="meta">
+          <div class="meta-row">
+            <svg viewBox="0 0 24 24" fill="none" stroke-width="2"><path d="M7 3h8l5 5v13H4V3z"/><path d="M14 3v6h6M8 13h8M8 17h8"/></svg>
+            <span>Certificate ID: <strong>${safeText(snapshot.documentId)}</strong></span>
+          </div>
+          <div class="meta-row">
+            <svg viewBox="0 0 24 24" fill="none" stroke-width="2"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M16 3v4M8 3v4M3 10h18"/></svg>
+            <span>Issued on: <strong>${dateText(snapshot.issueDate)}</strong></span>
+          </div>
+        </div>
+      </header>
+
+      <section class="heading">
+        <p class="eyebrow">
+          <svg class="laurel" viewBox="0 0 38 52" fill="none" aria-hidden="true">
+            <path d="M 12 47 C 6 32 10 16 26 5" stroke="#3874ff" stroke-width="2.2" stroke-linecap="round"/>
+            <path d="M 0 0 C -2.4 -2.8 -2.8 -6.5 0 -10 C 2.8 -6.5 2.4 -2.8 0 0 Z" fill="#3874ff" transform="translate(26,5) rotate(35) scale(1)"/>
+            <path d="M 0 0 C -2.4 -2.8 -2.8 -6.5 0 -10 C 2.8 -6.5 2.4 -2.8 0 0 Z" fill="#3874ff" transform="translate(9,44) rotate(-60) scale(0.95)"/>
+            <path d="M 0 0 C -2.4 -2.8 -2.8 -6.5 0 -10 C 2.8 -6.5 2.4 -2.8 0 0 Z" fill="#3874ff" transform="translate(12,45) rotate(20) scale(0.95)"/>
+            <path d="M 0 0 C -2.4 -2.8 -2.8 -6.5 0 -10 C 2.8 -6.5 2.4 -2.8 0 0 Z" fill="#3874ff" transform="translate(7.5,36) rotate(-50) scale(1)"/>
+            <path d="M 0 0 C -2.4 -2.8 -2.8 -6.5 0 -10 C 2.8 -6.5 2.4 -2.8 0 0 Z" fill="#3874ff" transform="translate(10.5,37) rotate(25) scale(1)"/>
+            <path d="M 0 0 C -2.4 -2.8 -2.8 -6.5 0 -10 C 2.8 -6.5 2.4 -2.8 0 0 Z" fill="#3874ff" transform="translate(8,28) rotate(-40) scale(1)"/>
+            <path d="M 0 0 C -2.4 -2.8 -2.8 -6.5 0 -10 C 2.8 -6.5 2.4 -2.8 0 0 Z" fill="#3874ff" transform="translate(11,29) rotate(30) scale(1)"/>
+            <path d="M 0 0 C -2.4 -2.8 -2.8 -6.5 0 -10 C 2.8 -6.5 2.4 -2.8 0 0 Z" fill="#3874ff" transform="translate(11,20) rotate(-30) scale(1)"/>
+            <path d="M 0 0 C -2.4 -2.8 -2.8 -6.5 0 -10 C 2.8 -6.5 2.4 -2.8 0 0 Z" fill="#3874ff" transform="translate(14,21) rotate(38) scale(1)"/>
+            <path d="M 0 0 C -2.4 -2.8 -2.8 -6.5 0 -10 C 2.8 -6.5 2.4 -2.8 0 0 Z" fill="#3874ff" transform="translate(16,13) rotate(-18) scale(1)"/>
+            <path d="M 0 0 C -2.4 -2.8 -2.8 -6.5 0 -10 C 2.8 -6.5 2.4 -2.8 0 0 Z" fill="#3874ff" transform="translate(19,14) rotate(48) scale(1)"/>
+            <path d="M 0 0 C -2.4 -2.8 -2.8 -6.5 0 -10 C 2.8 -6.5 2.4 -2.8 0 0 Z" fill="#3874ff" transform="translate(22,7.5) rotate(-8) scale(0.95)"/>
+            <path d="M 0 0 C -2.4 -2.8 -2.8 -6.5 0 -10 C 2.8 -6.5 2.4 -2.8 0 0 Z" fill="#3874ff" transform="translate(25,8.5) rotate(55) scale(0.95)"/>
+          </svg>
+        </p>
+        <h1>PROJECT <span>COMPLETION</span></h1>
+        <div class="title-rule"></div>
+        <p class="certify">This is to certify that</p>
+        <p class="student-name">${safeText(snapshot.studentName)}</p>
+        <div class="name-rule"></div>
+      </section>
+
+      <section class="copy">
+        <p>has successfully completed the internship project titled</p>
+        <p><span class="token project-token">“${safeText(snapshot.projectTitle)}”</span></p>
+        <p>as part of the <strong>${safeText(snapshot.documentTitle)}</strong> in the <strong>${safeText(snapshot.domain)}</strong> Domain<br />at <strong>Crewline</strong>.</p>
+        <p>The project demonstrates the successful application of learned concepts,<br />technical skills, and problem-solving abilities in a real-world scenario.</p>
+      </section>
+
+      ${sealHtml}
+
+      <footer class="verification">
+        <div class="qr-wrap">
+          <img src="${qr}" alt="QR code to verify this certificate" />
+        </div>
+        <div class="verify-copy">
+          <span class="verify-title">Verify Certificate</span>
+          <span class="verify-hint">Scan the QR code or visit</span>
+          <span class="verify-url"><span>${safeText(snapshot.verificationUrl)}</span><svg viewBox="0 0 24 24" fill="none" stroke-width="2"><path d="M14 3h7v7M10 14 21 3"/><path d="M19 13v7H4V5h7"/></svg></span>
+        </div>
+        <div class="signature">
+          <img src="${assets.signature}" alt="Authorized signature" />
+          <div class="signature-line"></div>
+          <div class="sign-name">${safeText(snapshot.signatoryName)}</div>
+          <div class="sign-role">${safeText(snapshot.signatoryDesignation)}<br />Crewline</div>
+        </div>
+      </footer>
+    </div>
+  </main>
+  <style>${projCss}</style>
+  `;
+
+  return documentHtml("landscape", heading, content, assets);
 }

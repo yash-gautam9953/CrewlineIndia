@@ -4,10 +4,10 @@ import { join } from "node:path";
 import { ID, Permission, Query, Role, Storage } from "node-appwrite";
 import { InputFile } from "node-appwrite/file";
 import { createPrivilegedAppwriteClient } from "@/lib/appwrite/server";
-import type { DocumentSnapshot } from "./document-validation";
-import type { DocumentType } from "./document-id-generator";
+import { prepareDocument, type DocumentSnapshot } from "./document-validation";
+import { generateDocumentId, getEventKey, type DocumentType } from "./document-id-generator";
 import { generatePdf } from "./pdf-generator";
-import { getEventKey } from "./document-id-generator";
+import { renderDocumentHtml } from "./templates";
 import { createNotification } from "@/lib/notifications";
 
 export function getDocumentsConfig() {
@@ -21,9 +21,10 @@ export function getDocumentsConfig() {
 export async function getDocumentAssets(signatureFileId: string) {
   const config = getDocumentsConfig();
   if (!config) throw new Error("Document storage is not configured.");
-  const [logoBytes, signatureBytes, interRegular, interBold, poppinsSemiBold, poppinsBold] = await Promise.all([
+  const [logoBytes, signatureBytes, badgeBytes, interRegular, interBold, poppinsSemiBold, poppinsBold] = await Promise.all([
     readFile(join(process.cwd(), "public", "brand-logo.png")),
     config.storage.getFileDownload({ bucketId: config.bucketId, fileId: signatureFileId }),
+    readFile(join(process.cwd(), "public", "crewline-badge-transparent.png")).catch(() => Buffer.from("")),
     readFile(join(process.cwd(), "node_modules", "@fontsource", "inter", "files", "inter-latin-400-normal.woff2")),
     readFile(join(process.cwd(), "node_modules", "@fontsource", "inter", "files", "inter-latin-700-normal.woff2")),
     readFile(join(process.cwd(), "node_modules", "@fontsource", "poppins", "files", "poppins-latin-600-normal.woff2")),
@@ -32,6 +33,7 @@ export async function getDocumentAssets(signatureFileId: string) {
   return {
     logo: `data:image/png;base64,${logoBytes.toString("base64")}`,
     signature: `data:image/png;base64,${Buffer.from(signatureBytes).toString("base64")}`,
+    badge: badgeBytes.length ? `data:image/png;base64,${badgeBytes.toString("base64")}` : undefined,
     fonts: {
       interRegular: `data:font/woff2;base64,${interRegular.toString("base64")}`,
       interBold: `data:font/woff2;base64,${interBold.toString("base64")}`,
@@ -101,3 +103,45 @@ export async function writeAuditLog(config: NonNullable<ReturnType<typeof getDoc
 export function documentTypeLabel(type: DocumentType) {
   return type === "offer" ? "Offer Letter" : type === "internship_completion" ? "Internship Completion Certificate" : "Project Completion Certificate";
 }
+
+export async function autoIssueOfferLetterForApplication(applicationId: string) {
+  const config = getDocumentsConfig();
+  if (!config) throw new Error("Document storage is not configured.");
+
+  const eventKey = getEventKey("offer", applicationId);
+  const existing = await config.tablesDB.listRows({
+    databaseId: config.databaseId,
+    tableId: config.tableId,
+    queries: [Query.equal("eventKey", eventKey), Query.limit(1)],
+  });
+  if (existing.rows[0]) {
+    return { row: existing.rows[0], alreadyIssued: true };
+  }
+
+  const documentId = generateDocumentId("offer");
+  const snapshot = await prepareDocument("offer", applicationId, documentId);
+  const assets = await getDocumentAssets(snapshot.signatorySignatureFileId);
+  const html = await renderDocumentHtml(snapshot, assets);
+  const row = await storeIssuedDocument(snapshot, html, "system-auto-enrollment", { notificationEmail: false });
+
+  const applicationsTable = process.env.APPWRITE_APPLICATIONS_TABLE_ID;
+  if (applicationsTable) {
+    try {
+      await config.tablesDB.updateRow({
+        databaseId: config.databaseId,
+        tableId: applicationsTable,
+        rowId: applicationId,
+        data: {
+          offerStatus: "sent",
+          offerSentAt: new Date().toISOString(),
+          offerSentBy: "system",
+        },
+      });
+    } catch (err) {
+      console.error("[auto-offer] Could not update application offerStatus:", err);
+    }
+  }
+
+  return { row, alreadyIssued: false };
+}
+
