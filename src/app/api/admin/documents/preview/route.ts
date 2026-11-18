@@ -37,7 +37,7 @@ export async function POST(request: Request) {
       terms: input.data.terms,
     } : undefined;
     const snapshot = await prepareDocument(input.data.documentType, input.data.sourceId, documentId, { offerDetails, reissueFromId: input.data.reissueFromId, reissueReason: input.data.reissueReason });
-    const assets = await getDocumentAssets(snapshot.signatorySignatureFileId, snapshot.documentType === "offer");
+    const assets = await getDocumentAssets(snapshot.signatorySignatureFileId);
     const html = await renderDocumentHtml(snapshot, assets);
     const pdf = await generatePdf(html, snapshot.documentType !== "offer");
     const token = signPreview({ snapshot, createdAt: Date.now() });

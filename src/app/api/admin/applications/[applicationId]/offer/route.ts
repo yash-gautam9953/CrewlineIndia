@@ -99,7 +99,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ app
       const snapshot = await prepareDocument("offer", applicationId, documentId, {
         offerDetails: { startDate: input.data.offerStartDate, duration: input.data.offerDuration, workMode: input.data.offerMode, stipend: input.data.offerStipend, terms: input.data.offerNotes },
       });
-      const assets = await getDocumentAssets(snapshot.signatorySignatureFileId, true);
+      const assets = await getDocumentAssets(snapshot.signatorySignatureFileId);
       const html = await renderDocumentHtml(snapshot, assets);
       documentRow = await storeIssuedDocument(snapshot, html, admin.$id, { notificationEmail: false }) as unknown as (typeof existing.rows)[number] & Record<string, unknown>;
     }

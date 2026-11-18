@@ -1,40 +1,12 @@
 import "server-only";
-import { readFile } from "node:fs/promises";
-import { join } from "node:path";
 import type { DocumentSnapshot } from "../document-validation";
-import { dateText, safeText, type DocumentAssets } from "./shared";
+import { brandHeader, dateText, documentHtml, safeText, signatureBlock, type DocumentAssets } from "./shared";
 
-const templatePath = join(process.cwd(), "Crewline-Offer-Letter", "crewline-internship-offer-letter.html");
+const heading = "INTERNSHIP OFFER LETTER";
+const css = `.offer{position:relative;padding:20mm 19mm 18mm;min-height:297mm}.offer h1{margin:10px 0 28px;color:#123B70;font:700 24px Poppins,Arial,sans-serif;letter-spacing:.04em}.offer p{font-size:11px;line-height:1.75;color:#39465a}.offer .intro{font-size:13px}.offer table{width:100%;margin:24px 0;border-collapse:collapse;border:1px solid #DCE6F2}.offer th,.offer td{padding:10px 12px;border-bottom:1px solid #DCE6F2;text-align:left;font-size:10px}.offer th{width:34%;background:#EAF3FF;color:#123B70}.offer h2{margin:24px 0 8px;color:#123B70;font:700 14px Poppins,Arial,sans-serif}.offer footer{position:absolute;left:19mm;right:19mm;bottom:15mm;padding-top:8px;border-top:1px solid #DCE6F2;color:#64748B;font-size:8px}`;
 
-export async function renderOfferLetter(snapshot: DocumentSnapshot, assets: DocumentAssets, options: { preview?: boolean } = {}) {
-  if (!assets.offerLetterBackground) {
-    throw new Error("Offer letter background is missing. Add offer-letter-background.png to the Crewline-Offer-Letter folder before previewing or issuing offers.");
-  }
-
-  const template = await readFile(templatePath, "utf8");
-  const values: Record<string, string> = {
-    offer_id: snapshot.documentId,
-    issue_date: dateText(snapshot.issueDate),
-    student_name: snapshot.studentName,
-    // studentId is the existing Appwrite auth user ID stored in document snapshots.
-    student_id: snapshot.studentId,
-    internship_role: snapshot.documentTitle,
-    internship_domain: snapshot.domain,
-    duration: snapshot.duration,
-    start_date: dateText(snapshot.startDate),
-    end_date: dateText(snapshot.endDate),
-    work_mode: snapshot.workMode,
-    signatory_name: snapshot.signatoryName,
-    signatory_designation: snapshot.signatoryDesignation,
-  };
-
-  let html = template
-    .replace('src="offer-letter-background.png"', `src="${assets.offerLetterBackground}"`)
-    .replace('src="signature.png"', `src="${assets.signature}"`)
-    .replace("{{preview_banner}}", options.preview ? '<div class="preview-banner">TEST PREVIEW · SAMPLE DATA · NOT FOR ISSUE</div>' : "");
-
-  for (const [key, value] of Object.entries(values)) {
-    html = html.replaceAll(`{{${key}}}`, safeText(value));
-  }
-  return html;
+export function renderOfferLetter(snapshot: DocumentSnapshot, assets: DocumentAssets) {
+  const rows: [string, string][] = [["Internship role", snapshot.documentTitle], ["Department / domain", snapshot.domain], ["Duration", snapshot.duration], ["Start date", dateText(snapshot.startDate)], ["End date", dateText(snapshot.endDate)], ["Work mode", snapshot.workMode], ...(snapshot.stipend ? [["Stipend", snapshot.stipend] as [string, string]] : [])];
+  const content = `<main class="offer">${brandHeader(snapshot, assets)}<p class="eyebrow">INTERNSHIP OFFER</p><h1>${heading}</h1><p class="intro">Dear <strong>${safeText(snapshot.studentName)}</strong>,</p><p>We are pleased to offer you an internship with Crewline. Please review the details below.</p><table><tbody>${rows.map(([label, value]) => `<tr><th>${safeText(label)}</th><td>${safeText(value)}</td></tr>`).join("")}</tbody></table><h2>Offer terms</h2><p class="terms">${snapshot.terms ? safeText(snapshot.terms).replace(/\n/g, "<br/>") : "Please follow the program instructions shared by Crewline. This educational internship does not guarantee employment or placement."}</p><p class="closing">We look forward to seeing what you build.</p>${signatureBlock(snapshot, assets)}<footer>Document ID: ${safeText(snapshot.documentId)} · This offer letter is intended for the named student.</footer></main>`;
+  return documentHtml("portrait", heading, `${content}<style>${css}</style>`, assets);
 }

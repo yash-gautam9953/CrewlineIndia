@@ -32,7 +32,7 @@ export async function POST(request: Request) {
     latest.issueDate = claims.snapshot.issueDate;
     if (latest.documentType === "offer") latest.completionDate = claims.snapshot.completionDate;
     if (JSON.stringify(latest) !== JSON.stringify(claims.snapshot)) return NextResponse.json({ error: "The source information or signatory settings changed after preview. Review a new preview before issuing." }, { status: 409 });
-    const assets = await getDocumentAssets(latest.signatorySignatureFileId, latest.documentType === "offer");
+    const assets = await getDocumentAssets(latest.signatorySignatureFileId);
     const html = await renderDocumentHtml(latest, assets);
     const row = await storeIssuedDocument(latest, html, admin.$id);
     return NextResponse.json({ issued: true, documentId: row.$id }, { status: 201, headers: { "cache-control": "no-store" } });
