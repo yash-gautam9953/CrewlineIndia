@@ -33,9 +33,9 @@
   .page {
     position: relative;
     width: 210mm;
-    min-height: 297mm;
+    height: 297mm;
     margin: 18px auto;
-    padding: 13mm 15mm 11mm;
+    padding: 6mm 15mm 11mm;
     overflow: hidden;
     background: #fff;
     box-shadow: 0 8px 32px rgba(15, 30, 75, .14);
@@ -43,39 +43,39 @@
   .corner { position: absolute; pointer-events: none; z-index: 0; }
   .corner-top { top: 0; left: 0; width: 68mm; height: 24mm; }
   .corner-bottom { right: 0; bottom: 0; width: 82mm; height: 35mm; }
-  .content { position: relative; z-index: 1; }
+  .content { position: relative; z-index: 1; height: 280mm; }
   .header {
     display: flex; justify-content: space-between; align-items: center;
-    gap: 8mm; min-height: 29mm;
+    gap: 8mm; min-height: 28mm;
   }
   .brand { display: flex; align-items: center; flex: 0 1 auto; min-width: 0; }
-  .brand img { display: block; width: 74mm; max-height: 24mm; object-fit: contain; object-position: left center; }
+  .brand img { display: block; width: 76mm; max-height: 24mm; object-fit: contain; object-position: left center; }
   .meta {
     flex: 0 0 59mm; border-left: 1px solid #aab6d4;
-    padding: 0 0 0 8mm; margin: 0; color: var(--navy);
+    padding: 0 0 0 8mm; margin: 0; color: var(--navy); transform: translateY(-1.2mm);
   }
-  .meta-row { display: flex; align-items: center; gap: 3mm; margin: 0 0 2.8mm; font-size: 10.5pt; font-weight: 700; line-height: 1.25; white-space: nowrap; }
+  .meta-row { display: flex; align-items: center; gap: 3mm; margin: 0 0 2.8mm; font-size: 11.5pt; font-weight: 700; line-height: 1.25; white-space: nowrap; }
   .meta-row:last-child { margin-bottom: 0; }
   .meta svg { width: 5mm; height: 5mm; stroke: var(--navy); flex: none; }
   h1 {
-    color: var(--navy); text-align: center; font-size: 25pt; line-height: 1.1;
-    letter-spacing: .2px; margin: 8mm 0 5mm; font-weight: 800;
+    color: var(--navy); text-align: center; font-size: 29pt; line-height: 1.1;
+    letter-spacing: .2px; margin: 4.6mm 0 4.4mm; font-weight: 800;
   }
-  .title-rule { display: flex; align-items: center; gap: 4mm; margin: 0 9mm 9mm; }
+  .title-rule { display: flex; align-items: center; gap: 4mm; margin: 0 9mm 7.8mm; }
   .title-rule span { height: 1px; background: #b9c9ef; flex: 1; }
   .title-rule b { display: block; width: 45mm; height: 1.8mm; border-radius: 5px; background: linear-gradient(90deg,var(--blue),var(--purple)); }
-  .greeting { font-size: 13.5pt; font-weight: 700; color: var(--navy); margin: 0 0 4mm; }
-  .intro { font-size: 11.8pt; line-height: 1.5; margin: 0 0 7mm; }
+  .greeting { font-size: 15pt; font-weight: 700; color: var(--navy); margin: 0 0 3mm; }
+  .intro { font-size: 15pt; line-height: 1.1; margin: 0 0 6mm; }
   strong { color: #2d3d65; font-weight: 700; }
   .details {
     position: relative; border: 1.2px solid #91b2ff; border-radius: 4mm;
-    padding: 8mm 6mm 4mm; margin: 0 0 6mm;
+    padding: 6mm 6mm 2mm; margin: 0 0 2mm;
     background: linear-gradient(110deg, #fff 0%, #f8faff 100%);
   }
   .details-label {
     position: absolute; top: -5mm; left: -.3mm; height: 10mm; min-width: 69mm;
     display: flex; align-items: center; gap: 3mm; padding: 0 7mm 0 6mm;
-    color: #fff; font-size: 12pt; font-weight: 800;
+    color: #fff; font-size: 13pt; font-weight: 800;
     background: linear-gradient(100deg, #0756d8, #5a0ce7);
     border-radius: 3mm 3mm 5mm 0; 
   }
@@ -83,28 +83,29 @@
   .detail-grid { display: grid; grid-template-columns: 1fr 1fr; }
   .detail-col { padding: 0 6mm 0 2mm; }
   .detail-col + .detail-col { border-left: 1px solid #cfdbf5; padding: 0 1mm 0 8mm; }
-  .detail-item { display: flex; align-items: center; gap: 4mm; min-height: 15mm; border-bottom: 1px solid #d8e1f5; }
+  .detail-item { display: flex; align-items: center; gap: 4mm; min-height: 14.5mm; border-bottom: 1px solid #d8e1f5; }
   .detail-item:last-child { border-bottom: 0; }
   .detail-icon {
     width: 11mm; height: 11mm; border-radius: 3mm; flex: none;
     display: grid; place-items: center; background: #eaf1ff;
   }
   .detail-icon svg { width: 7mm; height: 7mm; stroke: #0874f5; }
-  .detail-copy { min-width: 0; font-size: 11pt; line-height: 1.4; }
+  .detail-copy { min-width: 0; font-size: 12.2pt; line-height: 1.3; }
   .detail-copy b { display: block; color: #34415f; font-weight: 700; }
   .detail-copy span { display: block; overflow-wrap: anywhere; color: #354669; font-weight: 700; }
-  .paragraphs p { font-size: 11pt; line-height: 1.45; margin: 0 0 3.8mm; }
-  .closing { font-size: 11pt; line-height: 1.45; margin: 0 0 6mm; }
-  .regards { color: var(--navy); font-size: 11.5pt; font-weight: 700; margin: 0 0 11mm; }
-  .signature { width: 58mm; min-height: 26mm; }
+  .paragraphs p { font-size: 15pt; line-height: 1.05; margin: 0 0 .6mm; }
+  .closing { font-size: 15pt; line-height: 1.05; margin: 1.5mm 0 2mm; }
+  .regards { color: var(--navy); font-size: 11.5pt; font-weight: 700; margin: 0 0 2.5mm; }
+  .signature { position: absolute; left: 0; bottom: 16mm; width: 58mm; min-height: 26mm; }
   .signature img { display: block; width: 40mm; height: 14mm; object-fit: contain; object-position: left bottom; margin: 0 0 1mm; }
   .signature-line { width: 57mm; border-top: 1.2px solid var(--navy); margin: 0 0 2mm; }
-  .sign-name { color: var(--navy); font-size: 11pt; font-weight: 700; margin-bottom: 1mm; }
-  .sign-role { color: #505a70; font-size: 10.5pt; line-height: 1.4; }
+  .sign-name { color: var(--navy); font-size: 12pt; font-weight: 700; margin-bottom: 1mm; }
+  .sign-role { color: #505a70; font-size: 11.5pt; line-height: 1.3; }
   .footer {
-    position: relative; display: flex; align-items: center; gap: 15mm;
-    border-top: 1px solid #cbd8f5; margin-top: 8mm; padding-top: 5mm;
-    color: #34415f; font-size: 10.5pt; font-weight: 600;
+    position: absolute; left: 0; right: 0; bottom: 0;
+    display: flex; align-items: center; gap: 15mm;
+    border-top: 1px solid #cbd8f5; margin-top: 0; padding-top: 5mm;
+    color: #34415f; font-size: 11.5pt; font-weight: 600;
   }
   .footer-item { display: flex; align-items: center; gap: 3mm; }
   .footer svg { width: 5mm; height: 5mm; stroke: #0874f5; }
@@ -115,7 +116,7 @@
   }
   @media print {
     body { background: #fff; }
-    .page { margin: 0; box-shadow: none; }
+    .page { width: 210mm; height: 297mm; margin: 0; box-shadow: none; }
   }
 </style>
 </head>
