@@ -5,6 +5,9 @@ import { getSessionUser } from "@/lib/appwrite/session";
 import { createPrivilegedAppwriteClient } from "@/lib/appwrite/server";
 import { ensureStudentProfile } from "@/lib/student-profile";
 import { isRateLimited } from "@/lib/rate-limit";
+import { calculateInternshipDates, INTERNSHIP_DURATIONS } from "@/lib/internship-dates";
+import { createNotification } from "@/lib/notifications";
+import { listAdminUserIds } from "@/lib/authz";
 
 const schema = z.object({
   internshipSlug: z.string().trim().min(1).max(180),
@@ -13,6 +16,8 @@ const schema = z.object({
   college: z.string().trim().min(2).max(180),
   course: z.string().trim().min(2).max(160),
   currentYear: z.coerce.number().int().min(1).max(8),
+  selectedDuration: z.enum(INTERNSHIP_DURATIONS),
+  requestedStartDate: z.iso.date(),
   city: z.string().trim().min(2).max(120),
   statement: z.string().trim().max(2000).optional().default(""),
 });
@@ -23,6 +28,9 @@ export async function POST(request: Request) {
   if (!session) return NextResponse.json({ error: "Please sign in to apply." }, { status: 401 });
   const input = schema.safeParse(await request.json().catch(() => null));
   if (!input.success) return NextResponse.json({ error: "Please complete all required application details." }, { status: 400 });
+  const today = new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Kolkata", year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date());
+  if (input.data.requestedStartDate < today) return NextResponse.json({ error: "Choose today or a future internship start date." }, { status: 400 });
+  const dates = calculateInternshipDates(input.data.requestedStartDate, input.data.selectedDuration);
   const service = createPrivilegedAppwriteClient();
   const internshipsTable = process.env.APPWRITE_INTERNSHIPS_TABLE_ID;
   const applicationsTable = process.env.APPWRITE_APPLICATIONS_TABLE_ID;
@@ -68,11 +76,16 @@ export async function POST(request: Request) {
         currentYear: input.data.currentYear,
         city: input.data.city,
         statement: input.data.statement,
+        selectedDuration: input.data.selectedDuration,
+        requestedStartDate: dates.startAt,
+        proposedEndDate: dates.endAt,
         status: "pending",
         offerStatus: "not_prepared",
       },
       permissions: [Permission.read(Role.user(session.user.$id))],
     });
+    await createNotification({ userId: session.user.$id, eventKey: `application-submitted:${application.$id}`, title: "Application received", body: "Your Crewline application has been submitted and is awaiting review.", type: "application", targetUrl: "/account" }).catch(() => undefined);
+    await Promise.all(listAdminUserIds().map((adminId) => createNotification({ userId: adminId, eventKey: `application-review:${application.$id}:${adminId}`, title: "New internship application", body: `A new ${String(internship.domain)} application is ready for review.`, type: "application", targetUrl: `/admin/applications/${application.$id}` }).catch(() => undefined)));
     return NextResponse.json({ applicationId: application.$id, redirectTo: "/account?applied=1" }, { status: 201 });
   } catch (error) {
     const code = typeof error === "object" && error !== null && "code" in error ? error.code : undefined;

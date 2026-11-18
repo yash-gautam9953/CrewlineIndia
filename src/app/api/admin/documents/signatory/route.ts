@@ -41,18 +41,39 @@ export async function POST(request: Request) {
   const tableId = process.env.APPWRITE_WEBSITE_CONTENT_TABLE_ID;
   const bucketId = process.env.APPWRITE_DOCUMENTS_BUCKET_ID;
   if (!service || !tableId || !bucketId) return NextResponse.json({ error: "Document storage is not configured. Run the Appwrite setup script first." }, { status: 503 });
+  let stage = "upload-signature";
+  let uploadedFileId = "";
   try {
     const storage = new Storage(service.client);
     const uploaded = await storage.createFile({ bucketId, fileId: ID.unique(), file: InputFile.fromBuffer(bytes, `authorized-signature-${Date.now()}.png`), permissions: [Permission.read(Role.user(admin.$id))] });
+    uploadedFileId = uploaded.$id;
+    stage = "read-signatory-settings";
     const existing = await service.tablesDB.listRows({ databaseId: service.databaseId, tableId, queries: [Query.equal("contentKey", "authorized-signatory"), Query.limit(1)] });
     const content = JSON.stringify({ name: parsed.data.name, designation: parsed.data.designation, signatureFileId: uploaded.$id, updatedAt: new Date().toISOString() });
     if (existing.rows[0]) {
+      stage = "update-signatory-settings";
       await service.tablesDB.updateRow({ databaseId: service.databaseId, tableId, rowId: existing.rows[0].$id, data: { content, contentType: "authorized-signatory", isPublished: false, updatedBy: admin.$id } });
     } else {
+      stage = "create-signatory-settings";
       await service.tablesDB.createRow({ databaseId: service.databaseId, tableId, rowId: ID.unique(), data: { contentKey: "authorized-signatory", contentType: "authorized-signatory", content, isPublished: false, updatedBy: admin.$id, publishedAt: null } });
     }
     return NextResponse.json({ saved: true, signatureFileId: uploaded.$id }, { status: 201 });
-  } catch {
-    return NextResponse.json({ error: "Could not save authorized signature settings. Check Appwrite Storage and table scopes." }, { status: 502 });
+  } catch (error) {
+    const failure = (typeof error === "object" && error !== null ? error : {}) as { code?: unknown; type?: unknown };
+    const code = typeof failure.code === "number" ? failure.code : undefined;
+    const type = typeof failure.type === "string" ? failure.type : undefined;
+    console.error("[documents/signatory] Appwrite request failed", { stage, code, type });
+    if (uploadedFileId) {
+      try { await new Storage(service.client).deleteFile({ bucketId, fileId: uploadedFileId }); }
+      catch { console.error("[documents/signatory] Could not clean up the failed private signature upload."); }
+    }
+    if (type === "general_unauthorized_scope") {
+      const scope = stage === "upload-signature" ? "files.write" : "rows.read / rows.write";
+      return NextResponse.json({ error: `Appwrite API key is missing ${scope}. Add the scope to APPWRITE_API_KEY and restart the dev server.` }, { status: 503 });
+    }
+    if (code === 404 && stage === "upload-signature") return NextResponse.json({ error: "Appwrite could not find the documents bucket. Check APPWRITE_DOCUMENTS_BUCKET_ID and run the Appwrite setup script." }, { status: 503 });
+    if (code === 400 && stage === "upload-signature") return NextResponse.json({ error: "Appwrite rejected this PNG upload. Confirm the bucket accepts PNG files and try a smaller valid PNG." }, { status: 400 });
+    if (code === 409) return NextResponse.json({ error: "A signatory settings record already exists. Reload the page and try saving again." }, { status: 409 });
+    return NextResponse.json({ error: `Could not save authorized signatory settings during ${stage.replaceAll("-", " ")}${code ? ` (Appwrite HTTP ${code}${type ? `, ${type}` : ""})` : ". Check the Appwrite error shown in the dev terminal."}` }, { status: 502 });
   }
 }

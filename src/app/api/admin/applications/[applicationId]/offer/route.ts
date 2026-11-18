@@ -4,6 +4,10 @@ import { z } from "zod";
 import { getAdminUser } from "@/lib/authz";
 import { createPrivilegedAppwriteClient } from "@/lib/appwrite/server";
 import { isRateLimited } from "@/lib/rate-limit";
+import { generateDocumentId, getEventKey } from "@/lib/documents/document-id-generator";
+import { prepareDocument } from "@/lib/documents/document-validation";
+import { getDocumentAssets, getDocumentsConfig, storeIssuedDocument } from "@/lib/documents/document-service";
+import { renderDocumentHtml } from "@/lib/documents/templates";
 
 const httpsUrl = z.url({ protocol: /^https$/ }).max(2048);
 const schema = z.object({
@@ -38,6 +42,7 @@ function offerEmail(input: z.infer<typeof schema>, applicant: Record<string, unk
 
 export async function POST(request: Request, { params }: { params: Promise<{ applicationId: string }> }) {
   if (isRateLimited(request, "admin-offer-send", 10)) return NextResponse.json({ error: "Too many offer requests. Please wait before trying again." }, { status: 429 });
+  if (process.env.CREWLINE_EMAILS_ENABLED !== "true") return NextResponse.json({ error: "Email delivery is disabled in this environment. Set CREWLINE_EMAILS_ENABLED=true only for an approved mail test or production deployment." }, { status: 503 });
   const admin = await getAdminUser();
   if (!admin) return NextResponse.json({ error: "Administrator access required." }, { status: 403 });
   const { applicationId } = await params;
@@ -61,6 +66,13 @@ export async function POST(request: Request, { params }: { params: Promise<{ app
   }
   if (typeof application.studentEmail !== "string" || typeof application.studentId !== "string") return NextResponse.json({ error: "Application is missing student email details." }, { status: 400 });
   if (application.status !== "approved") return NextResponse.json({ error: "Approve this application before sending an offer." }, { status: 409 });
+  const expectedStartDate = typeof application.requestedStartDate === "string" ? application.requestedStartDate.slice(0, 10) : "";
+  const expectedDuration = String(application.selectedDuration ?? "");
+  if (!expectedStartDate || input.data.offerStartDate !== expectedStartDate || input.data.offerDuration !== expectedDuration) {
+    return NextResponse.json({ error: "The offer schedule must match the start date and duration selected in the student's application." }, { status: 409 });
+  }
+  const documents = getDocumentsConfig();
+  if (!documents) return NextResponse.json({ error: "Offer document storage is not configured." }, { status: 503 });
 
   const values = {
     offerStatus: "draft",
@@ -74,12 +86,32 @@ export async function POST(request: Request, { params }: { params: Promise<{ app
   };
   try {
     await service.tablesDB.updateRow({ databaseId: service.databaseId, tableId: applicationsTable, rowId: applicationId, data: values });
+    const eventKey = getEventKey("offer", applicationId);
+    const existing = await documents.tablesDB.listRows({ databaseId: documents.databaseId, tableId: documents.tableId, queries: [Query.equal("eventKey", eventKey), Query.limit(1)] });
+    let documentRow = existing.rows[0] as (typeof existing.rows)[number] & Record<string, unknown> | undefined;
+    if (documentRow) {
+      let storedSnapshot: Record<string, unknown> = {};
+      try { storedSnapshot = JSON.parse(String(documentRow.snapshot ?? "{}")) as Record<string, unknown>; } catch { /* reject below when the stored snapshot cannot be checked */ }
+      const matches = storedSnapshot.startDate === input.data.offerStartDate && storedSnapshot.duration === input.data.offerDuration && storedSnapshot.workMode === input.data.offerMode && storedSnapshot.stipend === input.data.offerStipend && storedSnapshot.terms === input.data.offerNotes;
+      if (!matches) throw new Error("A different offer PDF already exists for this application. Use the authorized reissue workflow before changing a previously generated offer.");
+    } else {
+      const documentId = generateDocumentId("offer");
+      const snapshot = await prepareDocument("offer", applicationId, documentId, {
+        offerDetails: { startDate: input.data.offerStartDate, duration: input.data.offerDuration, workMode: input.data.offerMode, stipend: input.data.offerStipend, terms: input.data.offerNotes },
+      });
+      const assets = await getDocumentAssets(snapshot.signatorySignatureFileId, true);
+      const html = await renderDocumentHtml(snapshot, assets);
+      documentRow = await storeIssuedDocument(snapshot, html, admin.$id, { notificationEmail: false }) as unknown as (typeof existing.rows)[number] & Record<string, unknown>;
+    }
+    const storageFileId = String(documentRow?.storageFileId ?? "");
+    if (!storageFileId) throw new Error("Offer PDF file is missing from the document record.");
     const message = await new Messaging(service.client).createEmail({
       messageId: ID.unique(),
       subject: `Crewline internship offer: ${String(program.title ?? "Internship program")}`.replace(/[\r\n]+/g, " "),
       content: offerEmail(input.data, application, program),
       users: [application.studentId],
       html: true,
+      attachments: [`${documents.bucketId}:${storageFileId}`],
     });
     await service.tablesDB.updateRow({
       databaseId: service.databaseId,

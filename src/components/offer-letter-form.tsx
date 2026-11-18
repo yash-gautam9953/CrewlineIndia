@@ -4,7 +4,7 @@ import { FormEvent, useState } from "react";
 import { useRouter } from "next/navigation";
 import { LoaderCircle, Send } from "lucide-react";
 
-export function OfferLetterForm({ applicationId, defaultDuration, alreadySent }: { applicationId: string; defaultDuration: string; alreadySent: boolean }) {
+export function OfferLetterForm({ applicationId, defaultDuration, defaultStartDate, defaultMode, defaultStipend, defaultWhatsappLink, defaultGoogleFormLink, defaultNotes, alreadySent }: { applicationId: string; defaultDuration: string; defaultStartDate: string; defaultMode: string; defaultStipend: string; defaultWhatsappLink: string; defaultGoogleFormLink: string; defaultNotes: string; alreadySent: boolean }) {
   const router = useRouter();
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
@@ -21,13 +21,13 @@ export function OfferLetterForm({ applicationId, defaultDuration, alreadySent }:
   }
   const input = "focus-ring mt-2 min-h-11 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm";
   return <form onSubmit={submit} className="grid gap-4 sm:grid-cols-2">
-    <label className="text-sm font-medium text-slate-700">Offer start date<input name="offerStartDate" type="date" required className={input} /></label>
-    <label className="text-sm font-medium text-slate-700">Duration<input name="offerDuration" defaultValue={defaultDuration} required maxLength={80} className={input} /></label>
-    <label className="text-sm font-medium text-slate-700">Work mode<select name="offerMode" defaultValue="remote" className={input}><option value="remote">Remote</option><option value="hybrid">Hybrid</option><option value="onsite">On-site</option></select></label>
-    <label className="text-sm font-medium text-slate-700">Stipend <span className="font-normal text-slate-400">(optional)</span><input name="offerStipend" maxLength={120} className={input} placeholder="Leave blank if not applicable" /></label>
-    <label className="text-sm font-medium text-slate-700 sm:col-span-2">WhatsApp link<input name="whatsappLink" type="url" required maxLength={2048} className={input} placeholder="https://chat.whatsapp.com/… or https://wa.me/…" /></label>
-    <label className="text-sm font-medium text-slate-700 sm:col-span-2">Google Form link <span className="font-normal text-slate-400">(optional)</span><input name="googleFormLink" type="url" maxLength={2048} className={input} placeholder="https://forms.gle/…" /></label>
-    <label className="text-sm font-medium text-slate-700 sm:col-span-2">Additional offer details <span className="font-normal text-slate-400">(optional)</span><textarea name="offerNotes" rows={4} maxLength={3000} className="focus-ring mt-2 w-full rounded-xl border border-slate-200 px-3 py-3 text-sm" placeholder="Add any program-specific instructions for the offer email." /></label>
+    <div className="text-sm font-medium text-slate-700">Start date<input value={defaultStartDate} readOnly className={`${input} bg-slate-50`} /><input type="hidden" name="offerStartDate" value={defaultStartDate} /></div>
+    <div className="text-sm font-medium text-slate-700">Selected duration<input value={defaultDuration} readOnly className={`${input} bg-slate-50`} /><input type="hidden" name="offerDuration" value={defaultDuration} /></div>
+    <label className="text-sm font-medium text-slate-700">Work mode<select name="offerMode" defaultValue={defaultMode} className={input}><option value="remote">Remote</option><option value="hybrid">Hybrid</option><option value="onsite">On-site</option></select></label>
+    <label className="text-sm font-medium text-slate-700">Stipend <span className="font-normal text-slate-400">(optional)</span><input name="offerStipend" defaultValue={defaultStipend} maxLength={120} className={input} placeholder="Leave blank if not applicable" /></label>
+    <label className="text-sm font-medium text-slate-700 sm:col-span-2">WhatsApp link<input name="whatsappLink" type="url" defaultValue={defaultWhatsappLink} required maxLength={2048} className={input} placeholder="https://chat.whatsapp.com/… or https://wa.me/…" /></label>
+    <label className="text-sm font-medium text-slate-700 sm:col-span-2">Google Form link <span className="font-normal text-slate-400">(optional)</span><input name="googleFormLink" type="url" defaultValue={defaultGoogleFormLink} maxLength={2048} className={input} placeholder="https://forms.gle/…" /></label>
+    <label className="text-sm font-medium text-slate-700 sm:col-span-2">Additional offer details <span className="font-normal text-slate-400">(optional)</span><textarea name="offerNotes" defaultValue={defaultNotes} rows={4} maxLength={3000} className="focus-ring mt-2 w-full rounded-xl border border-slate-200 px-3 py-3 text-sm" placeholder="Add any program-specific instructions for the offer email." /></label>
     {error && <p role="alert" className="rounded-xl bg-red-50 p-3 text-sm text-red-700 sm:col-span-2">{error}</p>}
     {alreadySent ? <p className="rounded-xl bg-emerald-50 p-4 text-sm font-medium text-emerald-800 sm:col-span-2">Offer email sent. This form is locked to prevent accidental duplicate emails.</p> : <div className="sm:col-span-2"><button disabled={busy} className="inline-flex min-h-12 items-center gap-2 rounded-xl bg-brand px-5 text-sm font-semibold text-white hover:bg-blue-600 disabled:opacity-60">{busy ? <LoaderCircle size={17} className="animate-spin" /> : <Send size={16} />}{busy ? "Sending offer email…" : "Save details and send offer"}</button><p className="mt-2 text-xs text-slate-500">This sends to the selected applicant’s account email only.</p></div>}
   </form>;

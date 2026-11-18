@@ -1,0 +1,130 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Crewline | Internship Offer Letter</title>
+  <style>
+    @page { size: A4 portrait; margin: 0; }
+    :root {
+      /* Central overlay layout settings. All coordinates are percentages of the A4 page. */
+      --offer-id-left: 79.1%; --offer-id-top: 4.15%; --offer-id-width: 17.2%; --offer-id-size: 10pt;
+      --issue-date-left: 79.1%; --issue-date-top: 7.05%; --issue-date-width: 18%; --issue-date-size: 10pt;
+      --student-name-left: 12.7%; --student-name-top: 21.9%; --student-name-width: 21.5%; --student-name-size: 12pt; --student-name-min-size: 8pt;
+      --student-id-left: 7.7%; --student-id-top: 31.05%; --student-id-width: 82%; --student-id-size: 8.5pt;
+      --intro-left: 7.7%; --intro-top: 25.2%; --intro-width: 84.6%; --intro-height: 5.5%; --intro-size: 10.5pt; --intro-leading: 1.3;
+      --detail-left: 19.6%; --detail-right: 63.6%; --detail-width: 28%;
+      --detail-row-1-top: 36.9%; --detail-row-2-top: 42.05%; --detail-row-3-top: 47.2%; --detail-row-height: 4.6%;
+      --detail-label-size: 9.5pt; --detail-value-size: 10.5pt;
+      --signature-left: 7.55%; --signature-top: 78.4%; --signature-width: 27.5%; --signature-height: 4.1%;
+      --signatory-name-left: 7.55%; --signatory-name-top: 84.8%; --signatory-name-width: 27.5%; --signatory-name-size: 10.5pt;
+      --signatory-role-left: 7.55%; --signatory-role-top: 87.1%; --signatory-role-width: 27.5%; --signatory-role-size: 9.5pt;
+      --ink: #111b43;
+      --soft-ink: #243252;
+    }
+    * { box-sizing: border-box; }
+    html, body { width: 210mm; height: 297mm; margin: 0; padding: 0; }
+    body { color: var(--soft-ink); font-family: Arial, Helvetica, sans-serif; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    .offer-page { position: relative; width: 210mm; height: 297mm; margin: 0; overflow: hidden; background: #fff; page-break-after: avoid; break-after: avoid-page; }
+    .page-background { position: absolute; inset: 0; z-index: 0; display: block; width: 100%; height: 100%; object-fit: fill; }
+    .overlay { position: absolute; z-index: 1; margin: 0; color: var(--ink); }
+    .offer-id { left: var(--offer-id-left); top: var(--offer-id-top); width: var(--offer-id-width); min-height: 1.8%; font-size: var(--offer-id-size); font-weight: 700; line-height: 1.15; white-space: nowrap; }
+    .issue-date { left: var(--issue-date-left); top: var(--issue-date-top); width: var(--issue-date-width); min-height: 1.8%; font-size: var(--issue-date-size); font-weight: 700; line-height: 1.15; white-space: nowrap; }
+    .student-name { left: var(--student-name-left); top: var(--student-name-top); width: var(--student-name-width); height: 2.3%; overflow: hidden; font-size: var(--student-name-size); font-weight: 700; line-height: 1.1; white-space: nowrap; }
+    .intro { left: var(--intro-left); top: var(--intro-top); width: var(--intro-width); height: var(--intro-height); overflow: hidden; color: var(--soft-ink); font-size: var(--intro-size); line-height: var(--intro-leading); text-align: left; }
+    .intro strong { color: var(--ink); font-weight: 700; }
+    .student-id { left: var(--student-id-left); top: var(--student-id-top); width: var(--student-id-width); min-height: 1.6%; color: #34415f; font-size: var(--student-id-size); font-weight: 600; line-height: 1.15; }
+    .detail-field { display: flex; flex-direction: column; justify-content: center; left: var(--detail-left); width: var(--detail-width); height: var(--detail-row-height); overflow: hidden; line-height: 1.12; }
+    .detail-field.right { left: var(--detail-right); }
+    .detail-field.role, .detail-field.start-date { top: var(--detail-row-1-top); }
+    .detail-field.domain, .detail-field.end-date { top: var(--detail-row-2-top); }
+    .detail-field.duration, .detail-field.work-mode { top: var(--detail-row-3-top); }
+    .detail-label { display: block; margin-bottom: .65mm; color: #121b40; font-size: var(--detail-label-size); font-weight: 700; }
+    .detail-value { display: block; color: #26314f; font-size: var(--detail-value-size); font-weight: 600; overflow-wrap: anywhere; }
+    .signature { left: var(--signature-left); top: var(--signature-top); width: var(--signature-width); height: var(--signature-height); object-fit: contain; object-position: left bottom; }
+    .signatory-name { left: var(--signatory-name-left); top: var(--signatory-name-top); width: var(--signatory-name-width); min-height: 1.7%; color: var(--ink); font-size: var(--signatory-name-size); font-weight: 700; line-height: 1.15; }
+    .signatory-role { left: var(--signatory-role-left); top: var(--signatory-role-top); width: var(--signatory-role-width); min-height: 2.8%; color: #3c4661; font-size: var(--signatory-role-size); line-height: 1.25; }
+    .preview-banner { display: none; }
+    body[data-preview="true"] .preview-banner { position: absolute; z-index: 5; top: 1.1%; right: 2%; display: block; padding: 1.2mm 2.2mm; border: .25mm solid #f2c36b; border-radius: 2mm; background: rgba(255,249,230,.96); color: #82590b; font-size: 8pt; font-weight: 700; letter-spacing: .03em; }
+    @media screen { body { background: #e8edf6; } .offer-page { margin: 18px auto; box-shadow: 0 8px 30px rgba(15,30,75,.15); } }
+    @media print { html, body { width: 210mm; height: 297mm; } .offer-page { margin: 0; box-shadow: none; } }
+  </style>
+</head>
+<body>
+  <main class="offer-page" aria-label="Crewline internship offer letter">
+    <img class="page-background" src="offer-letter-background.png" alt="" data-pdf-required-image="Offer letter background" />
+    {{preview_banner}}
+
+    <span class="overlay offer-id" data-field="offer_id" data-preview-key="offer_id">{{offer_id}}</span>
+    <span class="overlay issue-date" data-field="issue_date" data-preview-key="issue_date">{{issue_date}}</span>
+    <span class="overlay student-name fit-one-line" data-field="student_name" data-preview-key="student_name">{{student_name}}</span>
+    <p class="overlay intro" data-field="offer_intro">Congratulations! We are pleased to offer you the position of <strong data-preview-key="internship_role">{{internship_role}}</strong> at <strong>Crewline</strong> in the <strong data-preview-key="internship_domain">{{internship_domain}}</strong> domain. This letter confirms your selection for the virtual internship program from <strong data-preview-key="start_date">{{start_date}}</strong> to <strong data-preview-key="end_date">{{end_date}}</strong>.</p>
+    <span class="overlay student-id" data-field="student_id">Student ID: <span data-preview-key="student_id">{{student_id}}</span></span>
+
+    <div class="overlay detail-field role" data-field="internship_role">
+      <span class="detail-label">Internship Role</span><span class="detail-value fit-box" data-preview-key="internship_role">{{internship_role}}</span>
+    </div>
+    <div class="overlay detail-field domain" data-field="internship_domain">
+      <span class="detail-label">Domain</span><span class="detail-value fit-box" data-preview-key="internship_domain">{{internship_domain}}</span>
+    </div>
+    <div class="overlay detail-field duration" data-field="duration">
+      <span class="detail-label">Duration</span><span class="detail-value fit-box" data-preview-key="duration">{{duration}}</span>
+    </div>
+    <div class="overlay detail-field start-date right" data-field="start_date">
+      <span class="detail-label">Start Date</span><span class="detail-value fit-box" data-preview-key="start_date">{{start_date}}</span>
+    </div>
+    <div class="overlay detail-field end-date right" data-field="end_date">
+      <span class="detail-label">End Date</span><span class="detail-value fit-box" data-preview-key="end_date">{{end_date}}</span>
+    </div>
+    <div class="overlay detail-field work-mode right" data-field="work_mode">
+      <span class="detail-label">Work Mode</span><span class="detail-value fit-box" data-preview-key="work_mode">{{work_mode}}</span>
+    </div>
+
+    <img class="overlay signature" src="signature.png" alt="Authorized signatory signature" data-pdf-required-image="Authorized signature" onerror="this.style.display='none'" />
+    <span class="overlay signatory-name" data-field="signatory_name" data-preview-key="signatory_name">{{signatory_name}}</span>
+    <span class="overlay signatory-role" data-field="signatory_designation" data-preview-key="signatory_designation">{{signatory_designation}}</span>
+  </main>
+
+  <script>
+    (() => {
+      const params = new URLSearchParams(location.search);
+      const demo = params.get("preview") === "1";
+      if (demo) {
+        document.body.dataset.preview = "true";
+        const example = {
+          offer_id: "CW-OFFER-2026-DEMO01",
+          issue_date: "18 November 2026",
+          student_name: "Aarav Sharma",
+          student_id: "STU-DEMO-0142",
+          internship_role: "Frontend Development Intern",
+          internship_domain: "Web Development",
+          duration: "3 Months",
+          start_date: "01 December 2026",
+          end_date: "28 February 2027",
+          work_mode: "Virtual / Remote",
+          signatory_name: "Authorized Signatory",
+          signatory_designation: "Program Director"
+        };
+        document.querySelectorAll("[data-preview-key]").forEach((element) => {
+          const key = element.getAttribute("data-preview-key");
+          if (key && example[key]) element.textContent = example[key];
+        });
+      }
+
+      const fitText = () => {
+        document.querySelectorAll(".fit-one-line, .fit-box").forEach((element) => {
+          const style = getComputedStyle(element);
+          const original = parseFloat(style.fontSize);
+          const min = element.classList.contains("fit-one-line") ? original * .64 : original * .78;
+          let size = original;
+          while ((element.scrollWidth > element.clientWidth || element.scrollHeight > element.clientHeight) && size > min) {
+            size -= .35;
+            element.style.fontSize = `${size}px`;
+          }
+        });
+      };
+      document.fonts.ready.then(() => requestAnimationFrame(fitText));
+    })();
+  </script>
+</body>
+</html>

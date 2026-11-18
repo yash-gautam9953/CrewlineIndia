@@ -4,35 +4,49 @@ import { FormEvent, useState } from "react";
 import { useRouter } from "next/navigation";
 import { LoaderCircle } from "lucide-react";
 
-const domains = ["Web Development", "Python Programming", "Java Development", "Artificial Intelligence", "Machine Learning", "Data Science", "Cloud Computing", "Cybersecurity"];
+const domains = ["Web Development", "Python Development", "Java Development", "AI/ML", "Data Science", "UI/UX Design", "Cybersecurity", "Cloud Computing"];
 
 export function AdminProgramForm() {
   const router = useRouter();
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
+
   async function submit(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault(); setError(""); setBusy(true);
+    event.preventDefault();
+    setError("");
+    setBusy(true);
     try {
       const form = event.currentTarget;
       const body = Object.fromEntries(new FormData(form).entries());
-      const response = await fetch("/api/admin/internships", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body) });
+      const response = await fetch("/api/admin/internships", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify(body),
+      });
       const result = await response.json();
       if (!response.ok) throw new Error(result.error ?? "Could not save internship.");
-      form.reset(); router.refresh();
-    } catch (caught) { setError(caught instanceof Error ? caught.message : "Could not save internship."); }
-    finally { setBusy(false); }
+      form.reset();
+      router.refresh();
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : "Could not save internship.");
+    } finally {
+      setBusy(false);
+    }
   }
+
   const input = "focus-ring mt-2 min-h-11 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm";
+  const textarea = "focus-ring mt-2 w-full rounded-xl border border-slate-200 bg-white px-3 py-3 text-sm";
+
   return <form onSubmit={submit} className="grid gap-4 sm:grid-cols-2">
-    <label className="text-sm font-medium text-slate-700">Internship title<input name="title" required maxLength={180} className={input} /></label>
-    <label className="text-sm font-medium text-slate-700">Domain<select name="domain" required defaultValue="" className={input}><option value="" disabled>Select domain</option>{domains.map((domain) => <option key={domain}>{domain}</option>)}</select></label>
-    <label className="text-sm font-medium text-slate-700">Duration<input name="duration" required maxLength={80} placeholder="e.g. 8 weeks" className={input} /></label>
+    <label className="text-sm font-medium text-slate-700">Internship title<input name="title" required minLength={3} maxLength={180} className={input} /></label>
+    <label className="text-sm font-medium text-slate-700">Domain<select name="domain" required defaultValue="" className={input}><option value="" disabled>Select domain</option>{domains.map((domain) => <option key={domain} value={domain}>{domain}</option>)}</select></label>
+    <label className="text-sm font-medium text-slate-700">Program duration<input name="duration" required maxLength={80} placeholder="e.g. 8 weeks" className={input} /></label>
     <label className="text-sm font-medium text-slate-700">Application deadline<input name="applicationDeadline" type="date" className={input} /></label>
-    <label className="text-sm font-medium text-slate-700 sm:col-span-2">Description<textarea name="description" required minLength={10} maxLength={12000} rows={4} className="focus-ring mt-2 w-full rounded-xl border border-slate-200 px-3 py-3 text-sm" /></label>
-    <label className="text-sm font-medium text-slate-700 sm:col-span-2">Eligibility<textarea name="eligibility" maxLength={4000} rows={3} className="focus-ring mt-2 w-full rounded-xl border border-slate-200 px-3 py-3 text-sm" /></label>
-    <label className="text-sm font-medium text-slate-700 sm:col-span-2">Learning outcomes <span className="font-normal text-slate-400">(optional)</span><textarea name="learningOutcomes" maxLength={4000} rows={3} className="focus-ring mt-2 w-full rounded-xl border border-slate-200 px-3 py-3 text-sm" /></label>
-    <label className="text-sm font-medium text-slate-700">Publish<select name="publicationStatus" className={input}><option value="draft">Save as draft</option><option value="published">Publish now</option></select></label>
+    <label className="text-sm font-medium text-slate-700 sm:col-span-2">Description<textarea name="description" required minLength={10} maxLength={12000} rows={4} className={textarea} /></label>
+    <label className="text-sm font-medium text-slate-700 sm:col-span-2">Eligibility<textarea name="eligibility" maxLength={4000} rows={3} className={textarea} /></label>
+    <label className="text-sm font-medium text-slate-700 sm:col-span-2">Learning outcomes <span className="font-normal text-slate-400">(optional)</span><textarea name="learningOutcomes" maxLength={4000} rows={3} className={textarea} /></label>
+    <label className="text-sm font-medium text-slate-700">Publication<select name="publicationStatus" className={input}><option value="draft">Save as draft</option><option value="published">Publish now</option></select></label>
     {error && <p role="alert" className="rounded-xl bg-red-50 p-3 text-sm text-red-700 sm:col-span-2">{error}</p>}
-    <div className="sm:col-span-2"><button disabled={busy} className="inline-flex min-h-11 items-center gap-2 rounded-xl bg-brand px-5 text-sm font-semibold text-white hover:bg-blue-600 disabled:opacity-60">{busy && <LoaderCircle size={16} className="animate-spin" />}{busy ? "Saving…" : "Save internship"}</button></div>
+    <div className="sm:col-span-2"><button type="submit" disabled={busy} className="inline-flex min-h-11 items-center gap-2 rounded-xl bg-brand px-5 text-sm font-semibold text-white hover:bg-blue-600 disabled:opacity-60">{busy && <LoaderCircle size={16} className="animate-spin" />}{busy ? "Saving…" : "Save internship"}</button></div>
   </form>;
 }

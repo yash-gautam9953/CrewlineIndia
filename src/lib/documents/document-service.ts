@@ -8,6 +8,7 @@ import type { DocumentSnapshot } from "./document-validation";
 import type { DocumentType } from "./document-id-generator";
 import { generatePdf } from "./pdf-generator";
 import { getEventKey } from "./document-id-generator";
+import { createNotification } from "@/lib/notifications";
 
 export function getDocumentsConfig() {
   const service = createPrivilegedAppwriteClient();
@@ -17,20 +18,42 @@ export function getDocumentsConfig() {
   return { ...service, tableId, bucketId, storage: new Storage(service.client) };
 }
 
-export async function getDocumentAssets(signatureFileId: string) {
+export async function getDocumentAssets(signatureFileId: string, includeOfferLetterBackground = false) {
   const config = getDocumentsConfig();
   if (!config) throw new Error("Document storage is not configured.");
-  const [logoBytes, signatureBytes, interRegular, interBold, poppinsSemiBold, poppinsBold] = await Promise.all([
+  const [logoBytes, signatureBytes, interRegular, interBold, poppinsSemiBold, poppinsBold, offerLetterBackgroundBytes] = await Promise.all([
     readFile(join(process.cwd(), "public", "brand-logo.png")),
     config.storage.getFileDownload({ bucketId: config.bucketId, fileId: signatureFileId }),
     readFile(join(process.cwd(), "node_modules", "@fontsource", "inter", "files", "inter-latin-400-normal.woff2")),
     readFile(join(process.cwd(), "node_modules", "@fontsource", "inter", "files", "inter-latin-700-normal.woff2")),
     readFile(join(process.cwd(), "node_modules", "@fontsource", "poppins", "files", "poppins-latin-600-normal.woff2")),
     readFile(join(process.cwd(), "node_modules", "@fontsource", "poppins", "files", "poppins-latin-700-normal.woff2")),
+    includeOfferLetterBackground
+      ? readFile(join(process.cwd(), "Crewline-Offer-Letter", "offer-letter-background.png")).catch((error: NodeJS.ErrnoException) => {
+          if (error.code === "ENOENT") return null;
+          throw error;
+        })
+      : Promise.resolve(null),
   ]);
+  let offerLetterBackground: string | undefined;
+  if (offerLetterBackgroundBytes) {
+    const bytes = Buffer.from(offerLetterBackgroundBytes);
+    if (bytes.subarray(0, 8).toString("hex") !== "89504e470d0a1a0a" || bytes.length < 24) {
+      throw new Error("Crewline-Offer-Letter/offer-letter-background.png must be a valid PNG image.");
+    }
+    const width = bytes.readUInt32BE(16);
+    const height = bytes.readUInt32BE(20);
+    const a4PortraitRatio = 210 / 297;
+    const ratioDifference = Math.abs(width / height - a4PortraitRatio) / a4PortraitRatio;
+    if (!width || !height || ratioDifference > 0.002) {
+      throw new Error("Crewline-Offer-Letter/offer-letter-background.png must use the A4 portrait aspect ratio.");
+    }
+    offerLetterBackground = `data:image/png;base64,${bytes.toString("base64")}`;
+  }
   return {
     logo: `data:image/png;base64,${logoBytes.toString("base64")}`,
     signature: `data:image/png;base64,${Buffer.from(signatureBytes).toString("base64")}`,
+    offerLetterBackground,
     fonts: {
       interRegular: `data:font/woff2;base64,${interRegular.toString("base64")}`,
       interBold: `data:font/woff2;base64,${interBold.toString("base64")}`,
@@ -40,7 +63,7 @@ export async function getDocumentAssets(signatureFileId: string) {
   };
 }
 
-export async function storeIssuedDocument(snapshot: DocumentSnapshot, html: string, issuedBy: string) {
+export async function storeIssuedDocument(snapshot: DocumentSnapshot, html: string, issuedBy: string, options: { notificationEmail?: boolean } = {}) {
   const config = getDocumentsConfig();
   if (!config) throw new Error("Document storage is not configured.");
   const eventKey = getEventKey(snapshot.documentType, snapshot.sourceId, snapshot.reissuedFrom);
@@ -81,6 +104,7 @@ export async function storeIssuedDocument(snapshot: DocumentSnapshot, html: stri
       permissions: [Permission.read(Role.user(snapshot.studentId))],
     });
     await writeAuditLog(config, issuedBy, "document.issued", snapshot.documentId, { type: snapshot.documentType, studentId: snapshot.studentId, sourceId: snapshot.sourceId, reissuedFrom: snapshot.reissuedFrom || undefined, reissueReason: snapshot.reissueReason || undefined });
+    await createNotification({ userId: snapshot.studentId, eventKey: `document-issued:${snapshot.documentId}`, title: `${documentTypeLabel(snapshot.documentType)} ready`, body: `Your ${documentTypeLabel(snapshot.documentType).toLowerCase()} is available in My Documents.`, type: "document", targetUrl: "/account", sendEmail: options.notificationEmail }).catch(() => undefined);
     return row;
   } catch (error) {
     try { await config.storage.deleteFile({ bucketId: config.bucketId, fileId: file.$id }); } catch { /* best-effort orphan cleanup */ }
@@ -88,11 +112,11 @@ export async function storeIssuedDocument(snapshot: DocumentSnapshot, html: stri
   }
 }
 
-export async function writeAuditLog(config: NonNullable<ReturnType<typeof getDocumentsConfig>>, actorId: string, action: string, resourceId: string, details: Record<string, unknown>) {
+export async function writeAuditLog(config: NonNullable<ReturnType<typeof getDocumentsConfig>>, actorId: string, action: string, resourceId: string, details: Record<string, unknown>, resourceType = "document") {
   const auditTable = process.env.APPWRITE_AUDIT_LOGS_TABLE_ID;
   if (!auditTable) return;
   try {
-    await config.tablesDB.createRow({ databaseId: config.databaseId, tableId: auditTable, rowId: ID.unique(), data: { actorId, action, resourceType: "document", resourceId, details: JSON.stringify(details), ipHash: null, occurredAt: new Date().toISOString() } });
+    await config.tablesDB.createRow({ databaseId: config.databaseId, tableId: auditTable, rowId: ID.unique(), data: { actorId, action, resourceType, resourceId, details: JSON.stringify(details), ipHash: null, occurredAt: new Date().toISOString() } });
   } catch { /* document action remains authoritative; monitor missing audit rows */ }
 }
 

@@ -6,7 +6,7 @@ import { createPrivilegedAppwriteClient } from "@/lib/appwrite/server";
 
 const schema = z.object({
   title: z.string().trim().min(3).max(180),
-  domain: z.enum(["Web Development", "Python Programming", "Java Development", "Artificial Intelligence", "Machine Learning", "Data Science", "Cloud Computing", "Cybersecurity"]),
+  domain: z.enum(["Web Development", "Python Development", "Java Development", "AI/ML", "Data Science", "UI/UX Design", "Cybersecurity", "Cloud Computing"]),
   duration: z.string().trim().min(1).max(80),
   description: z.string().trim().min(10).max(12000),
   eligibility: z.string().trim().max(4000).optional().default(""),

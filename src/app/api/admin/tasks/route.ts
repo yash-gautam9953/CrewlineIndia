@@ -1,26 +1,105 @@
 import { NextResponse } from "next/server";
-import { ID, Query } from "node-appwrite";
+import { ID, Permission, Query, Role, Storage } from "node-appwrite";
+import { InputFile } from "node-appwrite/file";
 import { z } from "zod";
 import { getAdminUser } from "@/lib/authz";
 import { createPrivilegedAppwriteClient } from "@/lib/appwrite/server";
 import { isRateLimited } from "@/lib/rate-limit";
+import { createNotification } from "@/lib/notifications";
 
-const schema = z.object({ internshipId: z.string().min(1).max(64), title: z.string().trim().min(3).max(180), instructions: z.string().trim().min(10).max(12000), sequence: z.coerce.number().int().min(1).max(500), dueAt: z.union([z.iso.datetime(), z.literal("")]).optional().default(""), maxScore: z.union([z.literal(""), z.coerce.number().int().min(0).max(10000)]).optional().default(""), isMandatory: z.coerce.boolean().default(true), isPublished: z.coerce.boolean().default(false) });
+const schema = z.object({
+  internshipId: z.string().min(1).max(64),
+  title: z.string().trim().min(3).max(180),
+  instructions: z.string().trim().min(10).max(12000),
+  sequence: z.coerce.number().int().min(1).max(500),
+  dueAt: z.union([z.iso.datetime(), z.literal("")]).optional().default(""),
+  maxScore: z.union([z.literal(""), z.coerce.number().int().min(0).max(10000)]).optional().default(""),
+  assignmentMode: z.enum(["all_enrolled", "selected_students"]),
+});
+
+export const runtime = "nodejs";
 
 export async function POST(request: Request) {
   if (isRateLimited(request, "admin-task-create", 30)) return NextResponse.json({ error: "Too many task changes. Try again shortly." }, { status: 429 });
-  if (!await getAdminUser()) return NextResponse.json({ error: "Administrator access required." }, { status: 403 });
-  const input = schema.safeParse(await request.json().catch(() => null));
+  const admin = await getAdminUser();
+  if (!admin) return NextResponse.json({ error: "Administrator access required." }, { status: 403 });
+  const form = await request.formData();
+  const input = schema.safeParse({
+    internshipId: form.get("internshipId"), title: form.get("title"), instructions: form.get("instructions"), sequence: form.get("sequence"), dueAt: form.get("dueAt"), maxScore: form.get("maxScore"), assignmentMode: form.get("assignmentMode") || "all_enrolled",
+  });
+  const isMandatory = form.get("isMandatory") === "on";
+  const isPublished = form.get("isPublished") === "on";
+  const assignedStudentIds = [...new Set(form.getAll("assignedStudentIds").filter((value): value is string => typeof value === "string" && value.length <= 64))];
+  const file = form.get("resource");
+  const resource = file instanceof File && file.size > 0 ? file : null;
   if (!input.success) return NextResponse.json({ error: "Provide a task title, instructions, and valid sequence number." }, { status: 400 });
+  if (input.data.assignmentMode === "selected_students" && !assignedStudentIds.length) return NextResponse.json({ error: "Select at least one active student or assign the task to all enrollees." }, { status: 400 });
+  if (assignedStudentIds.length > 100) return NextResponse.json({ error: "Select no more than 100 students per task batch." }, { status: 400 });
+  let resourceBytes: Buffer | null = null;
+  if (resource) {
+    if (resource.type !== "application/pdf" || resource.size > 25 * 1024 * 1024) return NextResponse.json({ error: "Task resources must be PDF files up to 25 MB." }, { status: 400 });
+    resourceBytes = Buffer.from(await resource.arrayBuffer());
+    if (!resourceBytes.subarray(0, 5).equals(Buffer.from("%PDF-"))) return NextResponse.json({ error: "The uploaded task resource is not a valid PDF." }, { status: 400 });
+  }
+
   const service = createPrivilegedAppwriteClient();
   const taskTable = process.env.APPWRITE_TASKS_TABLE_ID;
   const internshipsTable = process.env.APPWRITE_INTERNSHIPS_TABLE_ID;
-  if (!service || !taskTable || !internshipsTable) return NextResponse.json({ error: "Task service is not configured." }, { status: 503 });
+  const enrollmentsTable = process.env.APPWRITE_ENROLLMENTS_TABLE_ID;
+  const assignmentsTable = process.env.APPWRITE_TASK_ASSIGNMENTS_TABLE_ID;
+  const resourcesTable = process.env.APPWRITE_TASK_RESOURCES_TABLE_ID;
+  const bucketId = process.env.APPWRITE_SUBMISSIONS_BUCKET_ID;
+  if (!service || !taskTable || !internshipsTable || !enrollmentsTable) return NextResponse.json({ error: "Task service is not configured." }, { status: 503 });
+  if (input.data.assignmentMode === "selected_students" && !assignmentsTable) return NextResponse.json({ error: "Task assignment table is missing. Run the Appwrite setup script." }, { status: 503 });
+  if (resource && !bucketId) return NextResponse.json({ error: "Student submission storage is not configured." }, { status: 503 });
+  if (resource && !resourcesTable) return NextResponse.json({ error: "Task resource history table is missing. Run the Appwrite setup script." }, { status: 503 });
+
+  let taskId = "";
+  let resourceFileId = "";
+  let resourceVersionRowId = "";
+  const createdAssignmentIds: string[] = [];
   try {
     await service.tablesDB.getRow({ databaseId: service.databaseId, tableId: internshipsTable, rowId: input.data.internshipId });
     const duplicate = await service.tablesDB.listRows({ databaseId: service.databaseId, tableId: taskTable, queries: [Query.equal("internshipId", input.data.internshipId), Query.equal("sequence", input.data.sequence), Query.limit(1)] });
     if (duplicate.total) return NextResponse.json({ error: "That sequence number is already used for this internship." }, { status: 409 });
-    const task = await service.tablesDB.createRow({ databaseId: service.databaseId, tableId: taskTable, rowId: ID.unique(), data: { internshipId: input.data.internshipId, title: input.data.title, instructions: input.data.instructions, sequence: input.data.sequence, isMandatory: input.data.isMandatory, dueAt: input.data.dueAt || null, maxScore: input.data.maxScore === "" ? null : input.data.maxScore, isPublished: input.data.isPublished } });
-    return NextResponse.json({ id: task.$id }, { status: 201 });
-  } catch { return NextResponse.json({ error: "Could not save this task." }, { status: 500 }); }
+
+    let assignees: string[] = [];
+    if (input.data.assignmentMode === "selected_students") {
+      const active = await service.tablesDB.listRows({ databaseId: service.databaseId, tableId: enrollmentsTable, queries: [Query.equal("internshipId", input.data.internshipId), Query.equal("studentId", assignedStudentIds), Query.equal("status", "active"), Query.limit(100)] });
+      assignees = [...new Set(active.rows.map((row) => String(row.studentId)))];
+      if (assignees.length !== assignedStudentIds.length) return NextResponse.json({ error: "Every selected student must have an active enrollment in this internship." }, { status: 400 });
+    } else {
+      const active = await service.tablesDB.listRows({ databaseId: service.databaseId, tableId: enrollmentsTable, queries: [Query.equal("internshipId", input.data.internshipId), Query.equal("status", "active"), Query.limit(100)] });
+      assignees = [...new Set(active.rows.map((row) => String(row.studentId)))];
+    }
+
+    taskId = ID.unique();
+    if (resource && resourceBytes && bucketId) {
+      const uploaded = await new Storage(service.client).createFile({ bucketId, fileId: ID.unique(), file: InputFile.fromBuffer(resourceBytes, `task-resource-${taskId}.pdf`), permissions: [Permission.read(Role.user(admin.$id))] });
+      resourceFileId = uploaded.$id;
+    }
+
+    await service.tablesDB.createRow({ databaseId: service.databaseId, tableId: taskTable, rowId: taskId, data: {
+      internshipId: input.data.internshipId, title: input.data.title, instructions: input.data.instructions, sequence: input.data.sequence, isMandatory, dueAt: input.data.dueAt || null, maxScore: input.data.maxScore === "" ? null : input.data.maxScore, isPublished, assignmentMode: input.data.assignmentMode, resourceFileId: resourceFileId || null, resourceFileName: resource ? resource.name.slice(0, 255) : null, resourceVersion: resourceFileId ? 1 : null,
+    } });
+
+    if (resourceFileId && resource && resourcesTable) {
+      resourceVersionRowId = ID.unique();
+      await service.tablesDB.createRow({ databaseId: service.databaseId, tableId: resourcesTable, rowId: resourceVersionRowId, data: { taskId, version: 1, resourceFileId, resourceFileName: resource.name.slice(0, 255), uploadedBy: admin.$id, uploadedAt: new Date().toISOString() } });
+    }
+
+    for (const studentId of input.data.assignmentMode === "selected_students" ? assignees : []) {
+      const row = await service.tablesDB.createRow({ databaseId: service.databaseId, tableId: assignmentsTable!, rowId: ID.unique(), data: { taskId, studentId, assignedBy: admin.$id, assignedAt: new Date().toISOString() }, permissions: [Permission.read(Role.user(studentId))] });
+      createdAssignmentIds.push(row.$id);
+    }
+    if (isPublished) await Promise.all(assignees.map((studentId) => createNotification({ userId: studentId, eventKey: `task-available:${taskId}:${studentId}`, title: "A new internship task is available", body: `A new task, “${input.data.title}”, is available in your Crewline dashboard.`, type: "task", targetUrl: "/account" }).catch(() => undefined)));
+    return NextResponse.json({ id: taskId, assignedCount: assignees.length, resourceAttached: Boolean(resourceFileId) }, { status: 201 });
+  } catch (error) {
+    for (const assignmentId of createdAssignmentIds) try { await service.tablesDB.deleteRow({ databaseId: service.databaseId, tableId: assignmentsTable!, rowId: assignmentId }); } catch { /* best-effort cleanup of rows created by this request */ }
+    if (resourceVersionRowId && resourcesTable) try { await service.tablesDB.deleteRow({ databaseId: service.databaseId, tableId: resourcesTable, rowId: resourceVersionRowId }); } catch { /* best-effort cleanup */ }
+    if (taskId) try { await service.tablesDB.deleteRow({ databaseId: service.databaseId, tableId: taskTable, rowId: taskId }); } catch { /* best-effort cleanup of row created by this request */ }
+    if (resourceFileId && bucketId) try { await new Storage(service.client).deleteFile({ bucketId, fileId: resourceFileId }); } catch { /* best-effort cleanup of private upload */ }
+    const code = typeof error === "object" && error !== null && "code" in error ? error.code : undefined;
+    return NextResponse.json({ error: code === 401 ? "Appwrite API key is missing a task, row, bucket, or file scope." : "Could not save this task. Check Appwrite task and storage scopes." }, { status: code === 401 ? 503 : 500 });
+  }
 }

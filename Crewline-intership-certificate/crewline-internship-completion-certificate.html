@@ -1,0 +1,347 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Crewline | Internship Completion Certificate</title>
+  <style>
+    @page { size: A4 landscape; margin: 0; }
+    :root {
+      --navy: #111d50;
+      --ink: #253253;
+      --blue: #0879f9;
+      --purple: #5710e8;
+      --pale: #edf4ff;
+      --line: #c8d6f7;
+    }
+    * { box-sizing: border-box; }
+    html, body { margin: 0; min-height: 100%; }
+    body {
+      padding: 18px;
+      background: #e9edf6;
+      color: var(--ink);
+      font-family: "Segoe UI", Arial, Helvetica, sans-serif;
+      -webkit-print-color-adjust: exact;
+      print-color-adjust: exact;
+    }
+    .certificate {
+      position: relative;
+      isolation: isolate;
+      width: 297mm;
+      height: 210mm;
+      margin: 0 auto;
+      padding: 8mm 11mm 8mm;
+      overflow: hidden;
+      background:
+        radial-gradient(ellipse at 88% 50%, rgba(220,232,255,.4), transparent 26%),
+        #fff;
+      box-shadow: 0 8px 30px rgba(15, 30, 75, .15);
+    }
+    .frame {
+      position: absolute;
+      inset: 3.5mm;
+      z-index: 0;
+      border: .35mm solid #4256ff;
+      border-radius: 2mm;
+      pointer-events: none;
+    }
+    .frame::before, .frame::after {
+      position: absolute;
+      content: "";
+      inset: 1.5mm;
+      border: .2mm solid rgba(8,121,249,.4);
+    }
+    .frame::after { inset: 2.5mm; border-color: rgba(87,16,232,.25); }
+    .corner { position: absolute; z-index: -1; pointer-events: none; }
+    .corner-top { top: 0; left: 0; width: 76mm; height: 55mm; }
+    .corner-bottom { right: 0; bottom: 0; width: 76mm; height: 55mm; }
+    .content { position: relative; z-index: 1; height: 100%; }
+    .header {
+      position: relative;
+      display: flex;
+      justify-content: flex-end;
+      align-items: center;
+      min-height: 22mm;
+      margin: 0 10mm 2mm;
+    }
+    .brand { position: absolute; left: 50%; display: flex; align-items: center; transform: translateX(-50%); }
+    .brand img { display: block; width: 86mm; max-height: 20mm; object-fit: contain; }
+    .meta {
+      min-width: 66mm;
+      padding: 0 0 0 8mm;
+      border-left: .35mm solid #9aa8d1;
+      color: var(--navy);
+    }
+    .meta-row {
+      display: flex;
+      align-items: center;
+      gap: 3mm;
+      margin: 0 0 2.6mm;
+      font-size: 10.5pt;
+      font-weight: 600;
+      white-space: nowrap;
+    }
+    .meta-row:last-child { margin-bottom: 0; }
+    .meta svg { width: 5mm; height: 5mm; flex: none; stroke: var(--navy); }
+    .heading { position: relative; max-width: 224mm; margin: 6mm auto 0; text-align: center; }
+    .eyebrow {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 5mm;
+      margin: 0 0 6mm;
+      color: var(--navy);
+      font-size: 20pt;
+      font-weight: 400;
+      letter-spacing: 5px;
+      line-height: 1.1;
+    }
+    .laurel { width: 8mm; height: 10mm; color: #5687ff; }
+    h1 {
+      margin: 0;
+      color: var(--navy);
+      font-size: 27pt;
+      font-weight: 800;
+      letter-spacing: .2px;
+      line-height: 1.08;
+    }
+    h1 span {
+      color: var(--purple);
+      background: linear-gradient(90deg, #0879f9, #6810e9);
+      -webkit-background-clip: text;
+      background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+    .title-rule {
+      width: 47mm;
+      height: 1.4mm;
+      margin: 6mm auto 5mm;
+      border-radius: 5mm;
+      background: linear-gradient(90deg, var(--blue), var(--purple));
+    }
+    .certify { margin: 0 0 2mm; color: var(--navy); font-size: 12pt; font-weight: 700; }
+    .student-name {
+      margin: 1mm 0 2mm;
+      color: #111c4d;
+      font-family: Georgia, "Times New Roman", serif;
+      font-size: 31pt;
+      font-style: italic;
+      font-weight: 700;
+      line-height: 1.15;
+      overflow-wrap: anywhere;
+    }
+    .name-rule { width: 164mm; max-width: 82%; margin: 0 auto 4mm; border-top: .35mm solid #aab7dc; }
+    .copy {
+      max-width: 183mm;
+      margin: 4mm auto 0;
+      transform: translateX(-7mm);
+      color: var(--ink);
+      font-size: 11.5pt;
+      line-height: 1.43;
+      text-align: center;
+    }
+    .copy p { margin: 0 0 2mm; }
+    .copy strong { color: var(--navy); font-weight: 750; }
+    .token {
+      display: inline-block;
+      padding: .5mm 3mm;
+      border-radius: 4mm;
+      background: #e3edff;
+      color: #17295f;
+      font-weight: 700;
+      white-space: nowrap;
+    }
+    .seal {
+      position: absolute;
+      z-index: 2;
+      top: 60mm;
+      right: 14mm;
+      width: 39mm;
+      height: 61mm;
+      filter: drop-shadow(0 1mm 1.5mm rgba(11,25,74,.2));
+    }
+    .verification {
+      position: absolute;
+      right: 28mm;
+      bottom: 8mm;
+      left: 12mm;
+      display: grid;
+      grid-template-columns: 31mm 1fr 1fr;
+      align-items: center;
+      min-height: 30mm;
+    }
+    .qr-wrap {
+      position: relative;
+      display: grid;
+      width: 30mm;
+      height: 30mm;
+      place-items: center;
+      border: .35mm solid #8aa8ff;
+      border-radius: 3mm;
+      background: #fff;
+      overflow: hidden;
+    }
+    .qr-wrap img { display: block; width: 27mm; height: 27mm; object-fit: contain; }
+    .qr-wrap.qr-missing::after {
+      content: "QR IMAGE";
+      color: #687594;
+      font-size: 8pt;
+      font-weight: 700;
+      letter-spacing: 1px;
+    }
+    .verify-copy {
+      min-height: 20mm;
+      margin-left: 8mm;
+      padding: 0 8mm;
+      border-left: .35mm solid #6675ff;
+      border-right: .35mm solid #6675ff;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      gap: 1.5mm;
+    }
+    .verify-title { color: var(--navy); font-size: 12pt; font-weight: 800; }
+    .verify-hint { color: #485570; font-size: 9.5pt; }
+    .verify-url {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 2mm;
+      width: 100%;
+      padding: 1.4mm 3mm;
+      border-radius: 4mm;
+      background: #e4edff;
+      color: #263e7a;
+      font-size: 9.5pt;
+      font-weight: 700;
+      overflow-wrap: anywhere;
+    }
+    .verify-url svg { width: 4mm; height: 4mm; flex: none; stroke: #0879f9; }
+    .signature {
+      justify-self: end;
+      width: 64mm;
+      padding-top: 1mm;
+      text-align: center;
+      color: var(--navy);
+    }
+    .signature img { display: block; width: 41mm; height: 12mm; margin: 0 auto 1mm; object-fit: contain; }
+    .signature-line { width: 62mm; margin: 0 auto 1.5mm; border-top: .35mm solid #596b9c; }
+    .sign-name { margin-bottom: .5mm; font-size: 10.5pt; font-weight: 800; }
+    .sign-role { color: #4c5872; font-size: 9.5pt; line-height: 1.3; }
+    @media screen and (max-width: 900px) {
+      body { padding: 0; overflow-x: auto; }
+      .certificate { margin: 0; box-shadow: none; }
+    }
+    @media print {
+      body { padding: 0; background: #fff; }
+      .certificate { margin: 0; box-shadow: none; }
+    }
+  </style>
+</head>
+<body>
+  <main class="certificate">
+    <div class="frame" aria-hidden="true"></div>
+
+    <svg class="corner corner-top" viewBox="0 0 300 220" preserveAspectRatio="none" aria-hidden="true">
+      <defs>
+        <linearGradient id="topBlue" x1="0" y1="0" x2="1" y2="1">
+          <stop offset="0" stop-color="#071d9a"/><stop offset="1" stop-color="#0879f9"/>
+        </linearGradient>
+        <linearGradient id="topPurple" x1="0" y1="0" x2="1" y2="1">
+          <stop offset="0" stop-color="#7410ed"/><stop offset="1" stop-color="#3510d2"/>
+        </linearGradient>
+      </defs>
+      <path d="M0 0H300C258 39 210 57 157 79C94 105 42 150 0 220Z" fill="url(#topBlue)"/>
+      <path d="M0 0H238C205 32 165 49 121 68C69 91 29 127 0 181Z" fill="url(#topPurple)"/>
+      <path d="M0 0H184C154 25 119 40 82 57C44 75 16 101 0 143Z" fill="#56aaff" opacity=".72"/>
+      <path d="M0 0H128C106 19 79 31 52 44C27 56 9 74 0 98Z" fill="#1029c7"/>
+    </svg>
+
+    <svg class="corner corner-bottom" viewBox="0 0 300 220" preserveAspectRatio="none" aria-hidden="true">
+      <defs>
+        <linearGradient id="bottomBlue" x1="0" y1="0" x2="1" y2="1">
+          <stop offset="0" stop-color="#57adff"/><stop offset="1" stop-color="#0879f9"/>
+        </linearGradient>
+        <linearGradient id="bottomPurple" x1="0" y1="0" x2="1" y2="1">
+          <stop offset="0" stop-color="#3010d4"/><stop offset="1" stop-color="#7210ed"/>
+        </linearGradient>
+      </defs>
+      <path d="M300 0V220H0C46 174 91 140 143 106C201 68 255 30 300 0Z" fill="url(#bottomBlue)"/>
+      <path d="M300 41V220H76C117 179 157 149 201 119C242 91 276 63 300 41Z" fill="url(#bottomPurple)"/>
+      <path d="M300 95V220H157C189 187 220 162 252 137C274 120 290 105 300 95Z" fill="#0879f9"/>
+      <path d="M300 151V220H224C247 196 269 173 286 156C292 151 297 147 300 144Z" fill="#3210d4"/>
+    </svg>
+
+    <div class="content">
+      <header class="header">
+        <div class="brand">
+          <img src="brand-logo.png" alt="Crewline — Learn. Build. Get Recognized." />
+        </div>
+        <div class="meta">
+          <div class="meta-row">
+            <svg viewBox="0 0 24 24" fill="none" stroke-width="2"><path d="M7 3h8l5 5v13H4V3z"/><path d="M14 3v6h6M8 13h8M8 17h8"/></svg>
+            <span>Certificate ID: <strong>{{certificate_id}}</strong></span>
+          </div>
+          <div class="meta-row">
+            <svg viewBox="0 0 24 24" fill="none" stroke-width="2"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M16 3v4M8 3v4M3 10h18"/></svg>
+            <span>Issued on: <strong>{{issue_date}}</strong></span>
+          </div>
+        </div>
+      </header>
+
+      <section class="heading">
+        <p class="eyebrow">
+          <svg class="laurel" viewBox="0 0 32 40" fill="none" aria-hidden="true"><path d="M26 3C12 9 5 20 6 36M11 28c-4-1-6-4-6-7 4 0 7 2 8 6M15 21c-4-1-6-4-5-7 4 0 7 3 7 7M20 14c-3-2-4-5-2-8 4 1 6 4 5 8M8 34c-3 0-5-2-6-5 3-1 6 1 8 3" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></svg>
+          CERTIFICATE OF
+          <svg class="laurel" viewBox="0 0 32 40" fill="none" aria-hidden="true"><path d="M6 3c14 6 21 17 20 33M21 28c4-1 6-4 6-7-4 0-7 2-8 6M17 21c4-1 6-4 5-7-4 0-7 3-7 7M12 14c3-2 4-5 2-8-4 1-6 4-5 8M24 34c3 0 5-2 6-5-3-1-6 1-8 3" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></svg>
+        </p>
+        <h1>INTERNSHIP <span>COMPLETION</span></h1>
+        <div class="title-rule"></div>
+        <p class="certify">This is to certify that</p>
+        <p class="student-name">{{student_name}}</p>
+        <div class="name-rule"></div>
+      </section>
+
+      <section class="copy">
+        <p>has successfully completed a <span class="token">{{duration}}</span> Virtual Internship at <strong>Crewline</strong> as a</p>
+        <p><span class="token">{{internship_role}}</span> in the <span class="token">{{internship_domain}}</span> Domain.</p>
+        <p>The internship was conducted from <strong>{{start_date}}</strong> to <strong>{{end_date}}</strong><br />in <strong>{{work_mode}}</strong> mode.</p>
+        <p>During this period, the intern worked on real-world tasks and projects,<br />demonstrating consistent effort, technical skills, and a strong learning attitude.</p>
+      </section>
+
+      <svg class="seal" viewBox="0 0 160 245" aria-label="Crewline completion seal" role="img">
+        <path d="M25 102h110v111l-27-17-28 17-28-17-27 17Z" fill="#2610d8"/>
+        <path d="M37 101h86v91l-21-13-22 13-22-13-21 13Z" fill="#0879f9"/>
+        <circle cx="80" cy="83" r="70" fill="#f7bd00"/>
+        <circle cx="80" cy="83" r="62" fill="#ffdc4a"/>
+        <circle cx="80" cy="83" r="54" fill="#101b4b" stroke="#fff2a5" stroke-width="2"/>
+        <circle cx="80" cy="83" r="46" fill="none" stroke="#f5d34c" stroke-width="1.5" stroke-dasharray="2 3"/>
+        <path d="M48 95c-7-9-9-20-6-31M112 95c7-9 9-20 6-31" fill="none" stroke="#f7df79" stroke-width="2"/>
+        <path d="M43 73l-8-4 8-3M47 62l-6-6 9-1M117 73l8-4-8-3M113 62l6-6-9-1" fill="none" stroke="#f7df79" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+        <path d="M69 44 80 37l11 7v13L80 64 69 57Z" fill="#fff"/>
+        <path d="m75 49-5 4 5 4m10-8 5 4-5 4m-3-7-4 7" fill="none" stroke="#101b4b" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+        <text x="80" y="83" fill="#fff" font-family="Segoe UI,Arial,sans-serif" font-size="13" font-weight="700" text-anchor="middle">Crewline</text>
+        <text x="80" y="103" fill="#ffda48" font-family="Arial,sans-serif" font-size="12" text-anchor="middle">★ ★ ★</text>
+      </svg>
+
+      <footer class="verification">
+        <div class="qr-wrap">
+          <img src="{{qr_code_image}}" alt="QR code to verify this certificate" onerror="this.style.display='none'; this.parentElement.classList.add('qr-missing')" />
+        </div>
+        <div class="verify-copy">
+          <span class="verify-title">Verify Certificate</span>
+          <span class="verify-hint">Scan the QR code or visit</span>
+          <span class="verify-url"><span>{{verification_url}}</span><svg viewBox="0 0 24 24" fill="none" stroke-width="2"><path d="M14 3h7v7M10 14 21 3"/><path d="M19 13v7H4V5h7"/></svg></span>
+        </div>
+        <div class="signature">
+          <img src="yash-sign.png" alt="Authorized signature" />
+          <div class="signature-line"></div>
+          <div class="sign-name">{{signatory_name}}</div>
+          <div class="sign-role">{{signatory_designation}}<br />Crewline</div>
+        </div>
+      </footer>
+    </div>
+
+  </main>
+</body>
+</html>

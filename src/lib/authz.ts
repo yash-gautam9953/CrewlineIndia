@@ -8,9 +8,13 @@ export async function getAdminUser() {
 }
 
 export function isAdminIdentity(userId: string) {
+  return listAdminUserIds().includes(userId);
+}
+
+export function listAdminUserIds() {
   const allowlist = (process.env.CREWLINE_ADMIN_IDENTITIES ?? "")
     .split(",")
     .map((identity) => identity.trim())
     .filter(Boolean);
-  return allowlist.includes(userId);
+  return allowlist;
 }

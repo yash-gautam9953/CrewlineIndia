@@ -4,6 +4,8 @@ import { z } from "zod";
 import { getAdminUser } from "@/lib/authz";
 import { createPrivilegedAppwriteClient } from "@/lib/appwrite/server";
 import { isRateLimited } from "@/lib/rate-limit";
+import { createNotification } from "@/lib/notifications";
+import { getDocumentsConfig, writeAuditLog } from "@/lib/documents/document-service";
 
 const schema = z.object({ decision: z.enum(["revision_required", "approved", "rejected"]), feedback: z.string().trim().min(5).max(5000), score: z.union([z.literal(""), z.coerce.number().int().min(0).max(10000)]).optional().default("") });
 
@@ -24,6 +26,10 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ su
     const reviewedAt = new Date().toISOString();
     await service.tablesDB.createRow({ databaseId: service.databaseId, tableId: reviewsTable, rowId: ID.unique(), data: { submissionId, reviewerId: admin.$id, feedback: input.data.feedback, score: input.data.score === "" ? null : input.data.score, decision: input.data.decision, reviewedAt } });
     await service.tablesDB.updateRow({ databaseId: service.databaseId, tableId: submissionsTable, rowId: submissionId, data: { status: input.data.decision } });
+    const title = input.data.decision === "approved" ? "Project approved" : input.data.decision === "revision_required" ? "Project revision requested" : "Project submission not approved";
+    await createNotification({ userId: String(submission.studentId), eventKey: `submission-review:${submissionId}:${reviewedAt}`, title, body: input.data.feedback, type: "review", targetUrl: "/account" }).catch(() => undefined);
+    const audit = getDocumentsConfig();
+    if (audit) await writeAuditLog(audit, admin.$id, `submission.${input.data.decision}`, submissionId, { score: input.data.score === "" ? null : input.data.score, feedback: input.data.feedback }, "submission");
     return NextResponse.json({ reviewed: true });
   } catch { return NextResponse.json({ error: "Submission was not found or could not be reviewed." }, { status: 404 }); }
 }

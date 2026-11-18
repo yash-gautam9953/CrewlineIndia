@@ -2,6 +2,7 @@ import "server-only";
 import { Query } from "node-appwrite";
 import { createPrivilegedAppwriteClient } from "@/lib/appwrite/server";
 import type { DocumentType } from "./document-id-generator";
+import { calculateInternshipDates, type InternshipDuration } from "@/lib/internship-dates";
 
 export type DocumentSnapshot = {
   documentType: DocumentType;
@@ -78,7 +79,15 @@ export async function prepareDocument(type: DocumentType, sourceId: string, docu
       service.tablesDB.getRow({ databaseId: service.databaseId, tableId: internshipTable, rowId: String(enrollment.internshipId) }),
       service.tablesDB.listRows({ databaseId: service.databaseId, tableId: tasksTable, queries: [Query.equal("internshipId", String(enrollment.internshipId)), Query.equal("isMandatory", true), Query.limit(100)] }),
     ]);
+    await validatePaymentEligibility(String(enrollment.studentId), sourceId);
     for (const task of tasks.rows) {
+      const taskData = task as typeof task & Record<string, unknown>;
+      if (taskData.assignmentMode === "selected_students") {
+        const assignmentsTable = process.env.APPWRITE_TASK_ASSIGNMENTS_TABLE_ID;
+        if (!assignmentsTable) throw new Error("Selected-student task assignment data is not configured.");
+        const assignment = await service.tablesDB.listRows({ databaseId: service.databaseId, tableId: assignmentsTable, queries: [Query.equal("taskId", task.$id), Query.equal("studentId", String(enrollment.studentId)), Query.limit(1)] });
+        if (!assignment.total) continue;
+      }
       const submissions = await service.tablesDB.listRows({ databaseId: service.databaseId, tableId: submissionsTable, queries: [Query.equal("studentId", String(enrollment.studentId)), Query.equal("taskId", task.$id), Query.equal("status", "approved"), Query.limit(1)] });
       if (!submissions.total) throw new Error("Every mandatory task must have an approved submission before the completion certificate can be issued.");
     }
@@ -96,6 +105,7 @@ export async function prepareDocument(type: DocumentType, sourceId: string, docu
     service.tablesDB.getRow({ databaseId: service.databaseId, tableId: tasksTable, rowId: String(submission.taskId) }),
     service.tablesDB.getRow({ databaseId: service.databaseId, tableId: enrollmentsTable, rowId: String(submission.enrollmentId) }),
   ]);
+  await validatePaymentEligibility(String(submission.studentId), String(enrollment.$id));
   const internship = await service.tablesDB.getRow({ databaseId: service.databaseId, tableId: internshipTable, rowId: String(enrollment.internshipId) }) as Record<string, unknown>;
   const reviewsTable = process.env.APPWRITE_REVIEWS_TABLE_ID;
   const approvalRows = reviewsTable ? await service.tablesDB.listRows({ databaseId: service.databaseId, tableId: reviewsTable, queries: [Query.equal("submissionId", sourceId), Query.equal("decision", "approved"), Query.orderDesc("reviewedAt"), Query.limit(1)] }) : { rows: [] };
@@ -117,15 +127,17 @@ async function studentName(userId: string) {
   return name;
 }
 
+async function validatePaymentEligibility(studentId: string, enrollmentId: string) {
+  const service = createPrivilegedAppwriteClient();
+  const paymentTable = process.env.APPWRITE_PAYMENTS_TABLE_ID;
+  if (!service || !paymentTable) return;
+  const payments = await service.tablesDB.listRows({ databaseId: service.databaseId, tableId: paymentTable, queries: [Query.equal("studentId", studentId), Query.equal("enrollmentId", enrollmentId), Query.limit(1)] });
+  const status = payments.rows[0]?.status;
+  if (status && !["not_applicable", "verified", "waived"].includes(String(status))) throw new Error("A disclosed payment requirement is still awaiting submission or verification.");
+}
+
 function deriveEndDate(startValue: string, duration: string) {
-  const start = new Date(startValue);
-  if (!Number.isFinite(start.getTime())) return "";
-  const match = duration.match(/^(\d+)\s*(day|days|week|weeks|month|months)$/i);
-  if (!match) return "";
-  const amount = Number(match[1]);
-  const unit = match[2].toLowerCase();
-  if (unit.startsWith("day")) start.setUTCDate(start.getUTCDate() + amount);
-  else if (unit.startsWith("week")) start.setUTCDate(start.getUTCDate() + amount * 7);
-  else start.setUTCMonth(start.getUTCMonth() + amount);
-  return start.toISOString();
+  if (!( ["1 Month", "2 Months", "3 Months"] as string[]).includes(duration)) return "";
+  try { return calculateInternshipDates(startValue.slice(0, 10), duration as InternshipDuration).endAt; }
+  catch { return ""; }
 }
