@@ -74,12 +74,8 @@ export class DocumentService {
     const documentId = generateDocumentId(documentType);
     const nowIso = new Date().toISOString();
 
-    // Step 2: Signatory settings
+    // Step 2: Centralized signatory settings
     const signatory = await this.db.getSignatorySettings();
-    let signatureDataUrl = null;
-    if (signatory.signatureFileId) {
-      signatureDataUrl = await this.storage.getSignatureDataUrl(signatory.signatureFileId);
-    }
 
     // Step 3: Verification URL and QR Code for certificates
     let verificationUrl = "";
@@ -103,7 +99,6 @@ export class DocumentService {
     const renderedHtml = await renderDocumentTemplate({
       documentType,
       data: documentData,
-      signatureDataUrl,
       qrCodeDataUrl,
     });
 

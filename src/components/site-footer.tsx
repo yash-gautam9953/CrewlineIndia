@@ -3,7 +3,7 @@ import Link from "next/link";
 
 export function SiteFooter() {
   return (
-    <footer className="bg-navy text-white">
+    <footer className="bg-[#123B70] text-white dark:border-t dark:border-slate-800/80 dark:bg-[#070D18]">
       <div className="mx-auto grid max-w-7xl gap-12 px-5 py-14 sm:px-8 md:grid-cols-[1.5fr_1fr_1fr] md:py-20">
         <div>
           <Link href="/" aria-label="Crewline home"><Image src="/brand-logo.png" alt="Crewline" width={260} height={72} className="h-12 w-auto brightness-0 invert" /></Link>

@@ -4,7 +4,6 @@ import { z } from "zod";
 import { getAdminUser } from "@/lib/authz";
 import { createPrivilegedAppwriteClient } from "@/lib/appwrite/server";
 import { isRateLimited } from "@/lib/rate-limit";
-import { createNotification } from "@/lib/notifications";
 
 const schema = z.object({ enrollmentId: z.string().min(1).max(64), amountDue: z.coerce.number().int().positive().max(100000000), instructions: z.string().trim().min(10).max(2000) });
 
@@ -28,7 +27,6 @@ export async function POST(request: Request) {
     const payment = record
       ? await service.tablesDB.updateRow({ databaseId: service.databaseId, tableId: paymentTable, rowId: record.$id, data })
       : await service.tablesDB.createRow({ databaseId: service.databaseId, tableId: paymentTable, rowId: ID.unique(), data, permissions: [Permission.read(Role.user(String(enrollment.studentId)))] });
-    await createNotification({ userId: String(enrollment.studentId), eventKey: `payment-request:${payment.$id}:${payment.$updatedAt}`, title: "Payment information available", body: `A payment request for ₹${input.data.amountDue} is available. Review the amount and instructions in My Payment.`, type: "payment", targetUrl: "/account" }).catch(() => undefined);
     return NextResponse.json({ paymentId: payment.$id }, { status: record ? 200 : 201 });
   } catch { return NextResponse.json({ error: "Could not create the payment request." }, { status: 500 }); }
 }

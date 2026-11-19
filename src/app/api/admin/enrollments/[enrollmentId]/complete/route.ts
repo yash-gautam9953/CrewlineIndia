@@ -3,7 +3,6 @@ import { Query } from "node-appwrite";
 import { getAdminUser } from "@/lib/authz";
 import { createPrivilegedAppwriteClient } from "@/lib/appwrite/server";
 import { isRateLimited } from "@/lib/rate-limit";
-import { createNotification } from "@/lib/notifications";
 import { getDocumentsConfig, writeAuditLog } from "@/lib/documents/document-service";
 
 const paymentAllowsCompletion = new Set(["not_applicable", "verified", "waived"]);
@@ -52,7 +51,6 @@ export async function POST(request: Request, { params }: { params: Promise<{ enr
 
     const completedAt = new Date().toISOString();
     await service.tablesDB.updateRow({ databaseId: service.databaseId, tableId: enrollmentTable, rowId: enrollmentId, data: { status: "completed", completedAt } });
-    await createNotification({ userId: String(enrollment.studentId), eventKey: `enrollment-completed:${enrollmentId}`, title: "Internship completed", body: "Your internship completion has been recorded. Check My Certificates for eligibility and document updates.", type: "enrollment", targetUrl: "/account", sendEmail: false }).catch(() => undefined);
     const config = getDocumentsConfig();
     if (config) await writeAuditLog(config, admin.$id, "enrollment.completed", enrollmentId, { studentId: enrollment.studentId, approvedMandatoryTaskCount: requiredTaskIds.length }, "enrollment");
     return NextResponse.json({ completed: true, completedAt });

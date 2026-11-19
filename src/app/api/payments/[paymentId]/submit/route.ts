@@ -4,8 +4,6 @@ import { InputFile } from "node-appwrite/file";
 import { getSessionUser } from "@/lib/appwrite/session";
 import { createPrivilegedAppwriteClient } from "@/lib/appwrite/server";
 import { isRateLimited } from "@/lib/rate-limit";
-import { createNotification } from "@/lib/notifications";
-import { listAdminUserIds } from "@/lib/authz";
 
 const maxProofSize = 10 * 1024 * 1024;
 function validProof(file: File, bytes: Buffer) {
@@ -46,7 +44,6 @@ export async function POST(request: Request, { params }: { params: Promise<{ pay
       uploadedId = uploaded.$id;
     }
     await service.tablesDB.updateRow({ databaseId: service.databaseId, tableId, rowId: paymentId, data: { status: "submitted", transactionReference: reference, proofFileId: uploadedId || row.proofFileId || null, verificationReason: null } });
-    await Promise.all(listAdminUserIds().map((adminId) => createNotification({ userId: adminId, eventKey: `payment-review:${paymentId}:${Date.now()}:${adminId}`, title: "Payment proof submitted", body: "A student submitted payment details for verification.", type: "payment", targetUrl: "/admin/payments" }).catch(() => undefined)));
     return NextResponse.json({ submitted: true });
   } catch {
     if (uploadedId && bucketId) try { await new Storage(service.client).deleteFile({ bucketId, fileId: uploadedId }); } catch { /* best-effort cleanup */ }

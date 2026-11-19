@@ -4,7 +4,6 @@ import { createPrivilegedAppwriteClient } from "@/lib/appwrite/server";
 
 export type PublicCertificateResult =
   | { status: "valid"; certificate: { certificateId: string; certificateType: string; studentName: string; internshipTitle: string; duration: string; issueDate: string; issuer: string } }
-  | { status: "revoked" }
   | { status: "not-found" }
   | { status: "unavailable" };
 
@@ -19,7 +18,6 @@ export async function verifyPublicCertificate(certificateId: string): Promise<Pu
       try {
         const issued = await service.tablesDB.getRow({ databaseId: service.databaseId, tableId: documentsTable, rowId: certificateId }) as Record<string, unknown>;
         if (issued.documentType === "offer") return { status: "not-found" };
-        if (issued.status === "revoked") return { status: "revoked" };
         if (issued.status !== "valid" || typeof issued.studentName !== "string" || typeof issued.documentTitle !== "string" || typeof issued.issueDate !== "string") return { status: "unavailable" };
         return { status: "valid", certificate: {
           certificateId: certificateId,
@@ -45,18 +43,7 @@ export async function verifyPublicCertificate(certificateId: string): Promise<Pu
       ],
     });
     const row = matches.rows[0] as (typeof matches.rows)[number] & Record<string, unknown> | undefined;
-    if (!row || typeof row.certificateId !== "string") return { status: "not-found" };
-
-    const revocationsTableId = process.env.APPWRITE_CERTIFICATE_REVOCATIONS_TABLE_ID;
-    if (row.status === "revoked") return { status: "revoked" };
-    if (revocationsTableId) {
-      const revocations = await service.tablesDB.listRows({
-        databaseId: service.databaseId,
-        tableId: revocationsTableId,
-        queries: [Query.equal("certificateId", certificateId), Query.limit(1), Query.select(["certificateId"])],
-      });
-      if (revocations.total > 0) return { status: "revoked" };
-    }
+    if (!row || typeof row.certificateId !== "string" || row.status !== "valid") return { status: "not-found" };
 
     if ([row.studentName, row.internshipTitle, row.duration, row.issueDate, row.issuer].some((value) => typeof value !== "string")) return { status: "unavailable" };
     return { status: "valid", certificate: {

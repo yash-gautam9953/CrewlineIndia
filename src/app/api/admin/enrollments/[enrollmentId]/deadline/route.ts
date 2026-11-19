@@ -3,7 +3,6 @@ import { z } from "zod";
 import { getAdminUser } from "@/lib/authz";
 import { createPrivilegedAppwriteClient } from "@/lib/appwrite/server";
 import { isRateLimited } from "@/lib/rate-limit";
-import { createNotification } from "@/lib/notifications";
 import { getDocumentsConfig, writeAuditLog } from "@/lib/documents/document-service";
 
 const schema = z.object({ newDeadline: z.iso.date(), reason: z.string().trim().min(10).max(2000) });
@@ -27,7 +26,6 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ en
     if (input.data.newDeadline <= oldDeadline.slice(0, 10)) return NextResponse.json({ error: "The extended deadline must be later than the current deadline." }, { status: 400 });
     const extendedAt = new Date().toISOString();
     await service.tablesDB.updateRow({ databaseId: service.databaseId, tableId, rowId: enrollmentId, data: { originalSubmissionDeadlineAt: enrollment.originalSubmissionDeadlineAt ?? oldDeadline, submissionDeadlineAt: newDeadline, deadlineExtensionReason: input.data.reason, deadlineExtendedBy: admin.$id, deadlineExtendedAt: extendedAt } });
-    await createNotification({ userId: String(enrollment.studentId), eventKey: `deadline-extended:${enrollmentId}:${newDeadline}`, title: "Project deadline extended", body: `Your final project deadline is now ${input.data.newDeadline}. Reason: ${input.data.reason}`, type: "deadline", targetUrl: "/account" }).catch(() => undefined);
     const config = getDocumentsConfig();
     if (config) await writeAuditLog(config, admin.$id, "enrollment.deadline_extended", enrollmentId, { previousDeadline: oldDeadline, newDeadline, reason: input.data.reason }, "enrollment");
     return NextResponse.json({ updated: true, submissionDeadlineAt: newDeadline });

@@ -6,8 +6,6 @@ import { createPrivilegedAppwriteClient } from "@/lib/appwrite/server";
 import { ensureStudentProfile } from "@/lib/student-profile";
 import { isRateLimited } from "@/lib/rate-limit";
 import { calculateInternshipDates, INTERNSHIP_DURATIONS } from "@/lib/internship-dates";
-import { createNotification } from "@/lib/notifications";
-import { listAdminUserIds } from "@/lib/authz";
 import { ensureEnrollmentForApprovedApplication } from "@/lib/enrollments";
 import { autoIssueOfferLetterForApplication } from "@/lib/documents/document-service";
 
@@ -115,7 +113,10 @@ export async function POST(request: Request) {
     });
 
     // 1. Create immediate active enrollment & auto-assign published domain task
-    const enrollmentResult = await ensureEnrollmentForApprovedApplication(application, "system_auto_enrollment");
+    const enrollmentResult = await ensureEnrollmentForApprovedApplication(
+      application as typeof application & { studentId: string; internshipId: string },
+      "system_auto_enrollment"
+    );
 
     // 2. Generate and store personalized Offer Letter PDF automatically
     let offerIssued = false;
@@ -132,35 +133,11 @@ export async function POST(request: Request) {
       }).catch(() => undefined);
     }
 
-    // 3. User notification
-    await createNotification({
-      userId: session.user.$id,
-      eventKey: `enrollment-confirmed:${application.$id}`,
-      title: "Enrollment Confirmed! 🎉",
-      body: `You have successfully enrolled in the ${String(internship.domain)} internship program. Your offer letter and assigned task are available in your dashboard.`,
-      type: "enrollment",
-      targetUrl: "/account",
-    }).catch(() => undefined);
-
-    // 4. Admin notification (for visibility, not approval)
-    await Promise.all(
-      listAdminUserIds().map((adminId) =>
-        createNotification({
-          userId: adminId,
-          eventKey: `new-enrollment:${application.$id}:${adminId}`,
-          title: "New Student Enrolled",
-          body: `${input.data.studentName} enrolled in ${String(internship.domain)} (${input.data.selectedDuration}).`,
-          type: "enrollment",
-          targetUrl: `/admin/enrollments`,
-        }).catch(() => undefined)
-      )
-    );
-
     return NextResponse.json({
       applicationId: application.$id,
       enrollmentId: enrollmentResult.row.$id,
       offerIssued,
-      redirectTo: "/account?enrolled=1",
+      redirectTo: `/account/internships/${enrollmentResult.row.$id}?enrolled=1`,
     }, { status: 201 });
   } catch (error) {
     const code = typeof error === "object" && error !== null && "code" in error ? error.code : undefined;

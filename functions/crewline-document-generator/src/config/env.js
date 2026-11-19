@@ -3,9 +3,9 @@
  */
 export function getEnv() {
   return {
-    endpoint: process.env.APPWRITE_ENDPOINT || process.env.NEXT_PUBLIC_APPWRITE_ENDPOINT || "https://sgp.cloud.appwrite.io/v1",
+    endpoint: process.env.APPWRITE_FUNCTION_API_ENDPOINT || process.env.APPWRITE_ENDPOINT || process.env.NEXT_PUBLIC_APPWRITE_ENDPOINT || "https://sgp.cloud.appwrite.io/v1",
     projectId: process.env.APPWRITE_FUNCTION_PROJECT_ID || process.env.APPWRITE_PROJECT_ID || process.env.NEXT_PUBLIC_APPWRITE_PROJECT_ID || "",
-    apiKey: process.env.APPWRITE_API_KEY || "",
+    apiKey: "", // Provided dynamically per request via req.headers['x-appwrite-key']
     databaseId: process.env.APPWRITE_DATABASE_ID || "6afc21760027a1281dc5",
     tables: {
       documents: process.env.APPWRITE_DOCUMENTS_TABLE_ID || "6afcb70600266a154ccd",

@@ -12,21 +12,23 @@ const schema = z.object({
   password: z.string().min(8).max(128),
 });
 
-type AppwriteFailure = { code?: unknown; type?: unknown };
+type AppwriteFailure = { code?: unknown; type?: unknown; message?: unknown };
 
 function failureDetails(error: unknown) {
   const failure = (typeof error === "object" && error !== null ? error : {}) as AppwriteFailure;
+  const message = error instanceof Error ? error.message : typeof failure.message === "string" ? failure.message : undefined;
   return {
     code: typeof failure.code === "number" ? failure.code : undefined,
     type: typeof failure.type === "string" ? failure.type : undefined,
+    message,
   };
 }
 
 function registrationError(error: unknown, stage: "create-user" | "profile" | "session") {
-  const { code, type } = failureDetails(error);
-  console.error("[auth/register] Appwrite operation failed", { stage, code, type });
+  const { code, type, message } = failureDetails(error);
+  console.error("[auth/register] Appwrite operation failed", { stage, code, type, error: message });
 
-  if (code === 409 || type?.includes("user_already_exists")) {
+  if (code === 409 || type?.includes("user_already_exists") || message?.toLowerCase().includes("already exists")) {
     return NextResponse.json({ error: "This email is already registered. Sign in instead." }, { status: 409 });
   }
 
@@ -35,14 +37,19 @@ function registrationError(error: unknown, stage: "create-user" | "profile" | "s
     return NextResponse.json({ error: `Appwrite API key is missing the ${scope} scope. Add it to APPWRITE_API_KEY in .env.local, then restart the dev server.` }, { status: 503 });
   }
 
+  if (code === 429 || type?.includes("rate_limit") || message?.toLowerCase().includes("rate limit")) {
+    return NextResponse.json({ error: "Appwrite rate limit reached for account creation. Please wait a moment and try again." }, { status: 429 });
+  }
+
   if (stage !== "create-user") {
     return NextResponse.json({ error: "Your account was created, but sign-in setup did not finish. Try signing in; if that fails, check the Appwrite scopes in .env.local." }, { status: 502 });
   }
 
-  const message = process.env.NODE_ENV === "development" && type
-    ? `Appwrite rejected account creation (${type}${code ? `, HTTP ${code}` : ""}). Check the project configuration and users.write scope.`
+  const devDetail = message ? `: ${message}` : type ? ` (${type}${code ? `, HTTP ${code}` : ""})` : "";
+  const errorMessage = process.env.NODE_ENV === "development" && devDetail
+    ? `Appwrite rejected account creation${devDetail}. Check the project configuration and users.write scope.`
     : "Account creation failed. Check the Appwrite configuration, or try signing in if you already registered.";
-  return NextResponse.json({ error: message }, { status: code === 400 ? 400 : 502 });
+  return NextResponse.json({ error: errorMessage }, { status: code === 400 ? 400 : 502 });
 }
 
 export async function POST(request: Request) {

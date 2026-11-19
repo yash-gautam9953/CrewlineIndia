@@ -25,7 +25,7 @@ export function EnrollmentCompleteForm({ enrollmentId }: { enrollmentId: string 
   }
 
   return <div className="mt-3">
-    <button type="button" onClick={complete} disabled={busy} className="inline-flex min-h-9 items-center gap-2 rounded-lg bg-brand px-3 text-xs font-semibold text-white hover:bg-blue-700 disabled:opacity-60">{busy && <LoaderCircle size={14} className="animate-spin" />}{busy ? "Checking requirements…" : "Mark internship complete"}</button>
-    {error && <p role="alert" className="mt-2 text-xs text-red-700">{error}</p>}
+    <button type="button" onClick={complete} disabled={busy} className="admin-btn-primary inline-flex min-h-9 items-center gap-2 rounded-lg bg-[#1769D2] px-3 text-xs font-semibold text-white border-transparent hover:bg-[#123B70] disabled:opacity-60">{busy && <LoaderCircle size={14} className="animate-spin text-white" />}{busy ? "Checking requirements…" : "Mark internship complete"}</button>
+    {error && <p role="alert" className="mt-2 text-xs text-red-700 dark:text-red-300">{error}</p>}
   </div>;
 }

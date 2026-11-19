@@ -6,8 +6,6 @@ import { getSessionUser } from "@/lib/appwrite/session";
 import { createPrivilegedAppwriteClient } from "@/lib/appwrite/server";
 import { isRateLimited } from "@/lib/rate-limit";
 import { studentCanAccessTask } from "@/lib/task-access";
-import { listAdminUserIds } from "@/lib/authz";
-import { createNotification } from "@/lib/notifications";
 
 const httpsUrl = z.union([z.literal(""), z.url({ protocol: /^https$/ }).max(2048)]);
 const schema = z.object({
@@ -56,7 +54,11 @@ export async function POST(request: Request) {
   if (!session) return NextResponse.json({ error: "Please sign in to submit your work." }, { status: 401 });
   const { values, files } = await projectFiles(request);
   const input = schema.safeParse(values);
-  if (!input.success) return NextResponse.json({ error: "Add a project title, description, and at least one project link, file, or work summary." }, { status: 400 });
+  if (!input.success) {
+    const fieldErrors = input.error.flatten().fieldErrors;
+    console.warn("[submissions] Submission validation failed:", fieldErrors);
+    return NextResponse.json({ error: "Add a project title, description, and at least one project link, file, or work summary.", details: fieldErrors }, { status: 400 });
+  }
   if (files.length > 5 || files.some((file) => file.size > 25 * 1024 * 1024 || !validateUpload(file))) return NextResponse.json({ error: "Upload up to 5 valid PDF, ZIP, PNG, JPG, or TXT files, each no larger than 25 MB." }, { status: 400 });
   const totalSize = files.reduce((sum, file) => sum + file.size, 0);
   if (totalSize > 25 * 1024 * 1024) return NextResponse.json({ error: "The total project upload size must not exceed 25 MB." }, { status: 400 });
@@ -112,7 +114,6 @@ export async function POST(request: Request) {
       for (const fileId of uploadedIds) try { await new Storage(service.client).deleteFile({ bucketId: bucketId!, fileId }); } catch { /* best-effort cleanup */ }
       throw error;
     }
-    await Promise.all(listAdminUserIds().map((adminId) => createNotification({ userId: adminId, eventKey: `project-submitted:${row.$id}:${adminId}`, title: "Project submission received", body: `A student submitted “${input.data.projectTitle}” for an internship task.`, type: "submission", targetUrl: "/admin/submissions" }).catch(() => undefined)));
     return NextResponse.json({ id: row.$id, isLate }, { status: 201 });
   } catch (error) {
     const code = typeof error === "object" && error !== null && "code" in error ? error.code : undefined;

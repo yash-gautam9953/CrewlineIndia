@@ -5,15 +5,21 @@
     {
       "$id": "crewline-document-generator",
       "name": "Crewline Document Generator",
-      "runtime": "node-20.0",
+      "runtime": "node-22",
       "path": "functions/crewline-document-generator",
       "entrypoint": "src/main.js",
       "ignore": [
         "node_modules",
         ".env"
       ],
-      "execute": [
-        "users"
+      "execute": [],
+      "scopes": [
+        "documents.read",
+        "documents.write",
+        "rows.read",
+        "rows.write",
+        "files.read",
+        "files.write"
       ],
       "events": [],
       "schedule": "",

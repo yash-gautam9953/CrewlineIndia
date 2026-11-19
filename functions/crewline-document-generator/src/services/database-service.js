@@ -144,27 +144,26 @@ export class DatabaseService {
   }
 
   async getSignatorySettings() {
-    try {
-      if (!this.tables.websiteContent) {
-        return { name: "Yash Gautam", designation: "Founder", signatureFileId: null };
-      }
-      const res = await this.listRows(this.tables.websiteContent, [
-        Query.equal("contentKey", "authorized-signatory"),
-        Query.limit(1),
-      ]);
-      const row = res.rows[0];
-      if (row && typeof row.content === "string") {
-        const parsed = JSON.parse(row.content);
-        return {
-          name: parsed.name?.trim() || "Yash Gautam",
-          designation: parsed.designation?.trim() || "Founder",
-          signatureFileId: parsed.signatureFileId || null,
-        };
-      }
-    } catch {
-      // Fallback to default signatory
+    if (!this.tables.websiteContent) {
+      throw new Error("Signatory settings storage is not configured.");
     }
-    return { name: "Yash Gautam", designation: "Founder", signatureFileId: null };
+    const res = await this.listRows(this.tables.websiteContent, [
+      Query.equal("contentKey", "authorized-signatory"),
+      Query.limit(1),
+    ]);
+    const row = res.rows[0];
+    if (!row || typeof row.content !== "string") {
+      throw new Error("Authorized signatory settings record is missing in the database.");
+    }
+    const parsed = JSON.parse(row.content);
+    if (!parsed.name || typeof parsed.name !== "string" || !parsed.name.trim() ||
+        !parsed.designation || typeof parsed.designation !== "string" || !parsed.designation.trim()) {
+      throw new Error("Authorized signatory details (name and designation) have not been configured.");
+    }
+    return {
+      name: parsed.name.trim(),
+      designation: parsed.designation.trim(),
+    };
   }
 
   async findDocumentByEventKey(eventKey) {

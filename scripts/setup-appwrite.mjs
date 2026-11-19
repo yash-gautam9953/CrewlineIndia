@@ -69,15 +69,9 @@ const tableDefinitions = [
   { env: "APPWRITE_CERTIFICATES_TABLE_ID", name: "Certificates", columns: [
     ["certificateId", "varchar", true, 40], ["studentId", "varchar", true, 36], ["studentName", "varchar", true, 160], ["internshipId", "varchar", true, 36], ["internshipTitle", "varchar", true, 180], ["domain", "varchar", true, 80], ["duration", "varchar", true, 80], ["issueDate", "datetime", true], ["issuer", "varchar", true, 180], ["status", "enum", true, ["valid", "revoked"]], ["pdfFileId", "varchar", false, 36],
   ], indexes: [["certificate_public_id_unique", "unique", ["certificateId"]], ["certificate_student", "key", ["studentId"]]] },
-  { env: "APPWRITE_CERTIFICATE_REVOCATIONS_TABLE_ID", name: "Certificate revocations", columns: [
-    ["certificateId", "varchar", true, 40], ["revokedBy", "varchar", true, 36], ["reason", "text", true], ["revokedAt", "datetime", true],
-  ], indexes: [["certificate_revocation_unique", "unique", ["certificateId"]]] },
   { env: "APPWRITE_DOCUMENTS_TABLE_ID", name: "Issued documents", columns: [
     ["documentType", "enum", true, ["offer", "internship_completion", "project_completion"]], ["eventKey", "varchar", true, 255], ["studentId", "varchar", true, 36], ["studentName", "varchar", true, 160], ["internshipId", "varchar", false, 36], ["sourceId", "varchar", false, 36], ["documentTitle", "varchar", true, 180], ["documentDomain", "varchar", false, 80], ["duration", "varchar", false, 80], ["issueDate", "datetime", true], ["status", "enum", true, ["valid", "revoked"]], ["storageFileId", "varchar", true, 36], ["snapshot", "text", true], ["signatoryName", "varchar", true, 160], ["signatoryDesignation", "varchar", true, 160], ["signatorySignatureFileId", "varchar", false, 36], ["templateVersion", "varchar", true, 32], ["issuedBy", "varchar", true, 36], ["revokedAt", "datetime", false], ["revocationReason", "text", false], ["reissuedFrom", "varchar", false, 40],
   ], indexes: [["document_event_unique", "unique", ["eventKey"]], ["document_student", "key", ["studentId"]], ["document_type_status", "key", ["documentType", "status"]]] },
-  { env: "APPWRITE_NOTIFICATIONS_TABLE_ID", name: "Notifications", columns: [
-    ["userId", "varchar", true, 36], ["title", "varchar", true, 180], ["body", "text", true], ["type", "varchar", true, 60], ["targetUrl", "varchar", false, 2048], ["isRead", "boolean", true], ["readAt", "datetime", false], ["eventKey", "varchar", false, 255], ["emailStatus", "enum", false, ["not_sent", "sent", "failed"]], ["emailMessageId", "varchar", false, 36],
-  ], indexes: [["notification_user_read", "key", ["userId", "isRead"]], ["notification_event_unique", "unique", ["eventKey"]]] },
   { env: "APPWRITE_PAYMENTS_TABLE_ID", name: "Payment verification", columns: [
     ["studentId", "varchar", true, 36], ["applicationId", "varchar", false, 36], ["enrollmentId", "varchar", false, 36], ["amountDue", "integer", false], ["currency", "varchar", true, 3], ["paymentInstructions", "text", false], ["status", "enum", true, ["not_applicable", "pending", "submitted", "verified", "rejected", "waived"]], ["transactionReference", "varchar", false, 180], ["proofFileId", "varchar", false, 36], ["verificationReason", "text", false], ["verifiedBy", "varchar", false, 36], ["verifiedAt", "datetime", false], ["createdBy", "varchar", false, 36], ["createdAt", "datetime", true],
   ], indexes: [["payment_student", "key", ["studentId"]], ["payment_enrollment_unique", "unique", ["enrollmentId"]], ["payment_status", "key", ["status"]]] },
@@ -90,9 +84,7 @@ const tableDefinitions = [
 ];
 
 const bucketDefinitions = [
-  { env: "APPWRITE_PROFILE_BUCKET_ID", name: "Profile images", extensions: ["jpg", "jpeg", "png", "webp"], maximumFileSize: 5 * 1024 * 1024 },
   { env: "APPWRITE_SUBMISSIONS_BUCKET_ID", name: "Student submissions", extensions: ["pdf", "zip", "png", "jpg", "jpeg", "txt"], maximumFileSize: 25 * 1024 * 1024 },
-  { env: "APPWRITE_CERTIFICATES_BUCKET_ID", name: "Certificates", extensions: ["pdf"], maximumFileSize: 10 * 1024 * 1024 },
   { env: "APPWRITE_DOCUMENTS_BUCKET_ID", name: "Crewline documents and signatures", extensions: ["pdf", "png"], maximumFileSize: 10 * 1024 * 1024 },
 ];
 

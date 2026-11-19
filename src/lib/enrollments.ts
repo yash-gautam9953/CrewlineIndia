@@ -2,7 +2,6 @@ import "server-only";
 import { ID, Permission, Query, Role } from "node-appwrite";
 import { createPrivilegedAppwriteClient } from "@/lib/appwrite/server";
 import { calculateInternshipDates, type InternshipDuration } from "@/lib/internship-dates";
-import { createNotification } from "@/lib/notifications";
 
 type ApplicationForEnrollment = Record<string, unknown> & { $id: string; studentId: string; internshipId: string };
 
@@ -99,6 +98,5 @@ export async function ensureEnrollmentForApprovedApplication(application: Applic
     }
   }
 
-  await createNotification({ userId: application.studentId, eventKey: `enrollment-created:${row.$id}`, title: "Internship enrollment created", body: "Your internship schedule and project deadline are now available in your dashboard.", type: "enrollment", targetUrl: "/account", sendEmail: false }).catch(() => undefined);
   return { row, created: true, taskAssigned, publishedTasksCount };
 }

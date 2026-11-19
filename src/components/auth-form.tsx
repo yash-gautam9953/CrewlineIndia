@@ -30,14 +30,14 @@ export function AuthForm({ mode, nextPath }: { mode: "login" | "register"; nextP
     }
   }
 
-  const inputClass = "focus-ring mt-2 min-h-12 w-full rounded-xl border border-slate-200 bg-white px-4 text-sm text-navy placeholder:text-slate-400";
+  const inputClass = "focus-ring mt-2 min-h-12 w-full rounded-xl border border-slate-200 bg-white px-4 text-sm text-navy placeholder:text-slate-400 dark:border-slate-700 dark:bg-[#1C2940] dark:text-[#F1F5FB] dark:placeholder:text-slate-500";
   return <form onSubmit={submit} className="mt-8 space-y-5">
-    {isRegister && <label className="block text-sm font-medium text-slate-700">Full name<input name="fullName" autoComplete="name" required minLength={2} maxLength={160} className={inputClass} placeholder="Your name as it should appear on your offer" /></label>}
-    <label className="block text-sm font-medium text-slate-700">Email<input name="email" autoComplete="email" type="email" required className={inputClass} placeholder="you@example.com" /></label>
-    <label className="block text-sm font-medium text-slate-700">Password<input name="password" autoComplete={isRegister ? "new-password" : "current-password"} type="password" required minLength={isRegister ? 8 : undefined} maxLength={128} className={inputClass} placeholder={isRegister ? "At least 8 characters" : "Your password"} /></label>
-    {error && <p role="alert" className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{error}</p>}
+    {isRegister && <label className="block text-sm font-medium text-slate-700 dark:text-slate-300">Full name<input name="fullName" autoComplete="name" required minLength={2} maxLength={160} className={inputClass} placeholder="Your name as it should appear on your offer" /></label>}
+    <label className="block text-sm font-medium text-slate-700 dark:text-slate-300">Email<input name="email" autoComplete="email" type="email" required className={inputClass} placeholder="you@example.com" /></label>
+    <label className="block text-sm font-medium text-slate-700 dark:text-slate-300">Password<input name="password" autoComplete={isRegister ? "new-password" : "current-password"} type="password" required minLength={isRegister ? 8 : undefined} maxLength={128} className={inputClass} placeholder={isRegister ? "At least 8 characters" : "Your password"} /></label>
+    {error && <p role="alert" className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700 dark:border-red-900/60 dark:bg-red-950/40 dark:text-red-300">{error}</p>}
     <button disabled={busy} className="inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-xl bg-brand px-5 text-sm font-semibold text-white hover:bg-blue-600 disabled:cursor-not-allowed disabled:opacity-65" type="submit">{busy && <LoaderCircle size={17} className="animate-spin" />}{busy ? "Please wait…" : isRegister ? "Create student account" : "Sign in"}</button>
-    {!isRegister && <div className="text-right text-sm"><Link href="/forgot-password" className="font-medium text-brand hover:text-blue-700">Forgot password?</Link></div>}
-    <p className="pt-2 text-center text-sm text-slate-500">{isRegister ? "Already registered?" : "New to Crewline?"} <Link href={isRegister ? "/login" : "/register"} className="font-semibold text-brand">{isRegister ? "Sign in" : "Create an account"}</Link></p>
+    {!isRegister && <div className="text-right text-sm"><Link href="/forgot-password" className="font-medium text-brand hover:text-blue-700 dark:text-blue-400">Forgot password?</Link></div>}
+    <p className="pt-2 text-center text-sm text-slate-500 dark:text-[#A8B5C8]">{isRegister ? "Already registered?" : "New to Crewline?"} <Link href={isRegister ? "/login" : "/register"} className="font-semibold text-brand dark:text-blue-400">{isRegister ? "Sign in" : "Create an account"}</Link></p>
   </form>;
 }

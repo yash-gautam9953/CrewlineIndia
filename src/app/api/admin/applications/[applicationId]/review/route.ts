@@ -4,7 +4,6 @@ import { getAdminUser } from "@/lib/authz";
 import { createPrivilegedAppwriteClient } from "@/lib/appwrite/server";
 import { isRateLimited } from "@/lib/rate-limit";
 import { ensureEnrollmentForApprovedApplication } from "@/lib/enrollments";
-import { createNotification } from "@/lib/notifications";
 
 const schema = z.object({ status: z.enum(["approved", "rejected"]), reason: z.string().trim().max(2000).optional().default("") });
 
@@ -22,7 +21,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ ap
     const application = await service.tablesDB.getRow({ databaseId: service.databaseId, tableId, rowId: applicationId }) as unknown as Record<string, unknown> & { $id: string; studentId: string; internshipId: string };
     if (["sent", "draft"].includes(String(application.offerStatus))) return NextResponse.json({ error: "An offer is already being processed or has been sent." }, { status: 409 });
     if (["withdrawn", "rejected"].includes(String(application.status))) return NextResponse.json({ error: "This application cannot be reviewed in its current state." }, { status: 409 });
-    if (application.status === "approved" && parsed.data.status === "rejected") return NextResponse.json({ error: "An approved application cannot be rejected. Revoke its documents and manage the enrollment separately." }, { status: 409 });
+    if (application.status === "approved" && parsed.data.status === "rejected") return NextResponse.json({ error: "An approved application cannot be rejected. Manage the enrollment directly from the enrollments dashboard." }, { status: 409 });
     if (parsed.data.status === "approved" && (!application.selectedDuration || !application.requestedStartDate)) return NextResponse.json({ error: "This older application is missing its requested duration or start date. Add the schedule details before approving." }, { status: 409 });
 
     if (application.status !== parsed.data.status) {
@@ -30,12 +29,10 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ ap
     }
 
     if (parsed.data.status === "rejected") {
-      await createNotification({ userId: application.studentId, eventKey: `application-rejected:${applicationId}`, title: "Application update", body: parsed.data.reason ? `Your application was not approved. Reason: ${parsed.data.reason}` : "Your application was not approved.", type: "application", targetUrl: "/account", sendEmail: false }).catch(() => undefined);
       return NextResponse.json({ reviewed: true, status: "rejected" });
     }
 
     const enrollment = await ensureEnrollmentForApprovedApplication(application, admin.$id);
-    await createNotification({ userId: application.studentId, eventKey: `application-approved:${applicationId}`, title: "Application approved", body: "Your internship application was approved. Your schedule is shown in your account.", type: "application", targetUrl: "/account", sendEmail: false }).catch(() => undefined);
     return NextResponse.json({ reviewed: true, status: "approved", enrolled: true, enrollmentCreated: enrollment.created });
   } catch (error) {
     const code = typeof error === "object" && error !== null && "code" in error ? error.code : undefined;

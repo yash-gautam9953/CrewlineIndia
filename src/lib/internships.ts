@@ -1,3 +1,4 @@
+import "server-only";
 import { Query } from "node-appwrite";
 import { createPrivilegedAppwriteClient } from "@/lib/appwrite/server";
 import { appwriteConfig } from "@/lib/appwrite/config";

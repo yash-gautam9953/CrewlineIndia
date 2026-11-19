@@ -5,7 +5,6 @@ import { z } from "zod";
 import { getAdminUser } from "@/lib/authz";
 import { createPrivilegedAppwriteClient } from "@/lib/appwrite/server";
 import { isRateLimited } from "@/lib/rate-limit";
-import { createNotification } from "@/lib/notifications";
 
 const schema = z.object({
   internshipId: z.string().min(1).max(64),
@@ -92,7 +91,6 @@ export async function POST(request: Request) {
       const row = await service.tablesDB.createRow({ databaseId: service.databaseId, tableId: assignmentsTable!, rowId: ID.unique(), data: { taskId, studentId, assignedBy: admin.$id, assignedAt: new Date().toISOString() }, permissions: [Permission.read(Role.user(studentId))] });
       createdAssignmentIds.push(row.$id);
     }
-    if (isPublished) await Promise.all(assignees.map((studentId) => createNotification({ userId: studentId, eventKey: `task-available:${taskId}:${studentId}`, title: "A new internship task is available", body: `A new task, “${input.data.title}”, is available in your Crewline dashboard.`, type: "task", targetUrl: "/account" }).catch(() => undefined)));
     return NextResponse.json({ id: taskId, assignedCount: assignees.length, resourceAttached: Boolean(resourceFileId) }, { status: 201 });
   } catch (error) {
     for (const assignmentId of createdAssignmentIds) try { await service.tablesDB.deleteRow({ databaseId: service.databaseId, tableId: assignmentsTable!, rowId: assignmentId }); } catch { /* best-effort cleanup of rows created by this request */ }

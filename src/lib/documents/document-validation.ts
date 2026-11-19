@@ -41,8 +41,15 @@ export async function readSignatorySettings() {
   const row = result.rows[0] as (typeof result.rows)[number] & Record<string, unknown> | undefined;
   if (!row || typeof row.content !== "string") throw new Error("Authorized signatory details have not been configured.");
   const settings = JSON.parse(row.content) as { name?: unknown; designation?: unknown; signatureFileId?: unknown };
-  if (typeof settings.name !== "string" || !settings.name.trim() || typeof settings.designation !== "string" || !settings.designation.trim() || typeof settings.signatureFileId !== "string" || !settings.signatureFileId) throw new Error("Authorized signatory details and an uploaded signature are required.");
-  return { rowId: row.$id, name: settings.name, designation: settings.designation, signatureFileId: settings.signatureFileId };
+  if (typeof settings.name !== "string" || !settings.name.trim() || typeof settings.designation !== "string" || !settings.designation.trim()) {
+    throw new Error("Authorized signatory details (name and designation) have not been configured.");
+  }
+  return {
+    rowId: row.$id,
+    name: settings.name.trim(),
+    designation: settings.designation.trim(),
+    signatureFileId: typeof settings.signatureFileId === "string" ? settings.signatureFileId : "",
+  };
 }
 
 export async function prepareDocument(type: DocumentType, sourceId: string, documentId: string, options: DocumentPreparationOptions = {}): Promise<DocumentSnapshot> {

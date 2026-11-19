@@ -119,8 +119,8 @@ export function renderOfferLetter(snapshot: DocumentSnapshot, assets: DocumentAs
   const issueDate = dateText(snapshot.issueDate);
   const studentName = safeText(snapshot.studentName);
   const offerId = safeText(snapshot.documentId);
-  const signatoryName = safeText(snapshot.signatoryName || "Authorized Signatory");
-  const signatoryDesignation = safeText(snapshot.signatoryDesignation || "Program Director");
+  const signatoryName = safeText(snapshot.signatoryName);
+  const signatoryDesignation = safeText(snapshot.signatoryDesignation);
 
   const stipendParagraph = snapshot.stipend
     ? `<p>Any <strong>stipend</strong> (${safeText(snapshot.stipend)}), if applicable, will be governed by the terms communicated separately.</p>`

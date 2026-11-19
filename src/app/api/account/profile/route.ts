@@ -19,7 +19,11 @@ export async function PATCH(request: Request) {
   const session = await getSessionUser();
   if (!session) return NextResponse.json({ error: "Please sign in to update your profile." }, { status: 401 });
   const parsed = profileSchema.safeParse(await request.json().catch(() => null));
-  if (!parsed.success) return NextResponse.json({ error: "Check your profile details and try again." }, { status: 400 });
+  if (!parsed.success) {
+    const fieldErrors = parsed.error.flatten().fieldErrors;
+    console.warn("[account/profile] Profile validation failed:", fieldErrors);
+    return NextResponse.json({ error: "Check your profile details and try again.", details: fieldErrors }, { status: 400 });
+  }
   const service = createPrivilegedAppwriteClient();
   const tableId = process.env.APPWRITE_STUDENT_PROFILES_TABLE_ID;
   if (!service || !tableId) return NextResponse.json({ error: "Profile storage is not configured." }, { status: 503 });

@@ -1,12 +1,14 @@
 import { NextResponse } from "next/server";
-import { ID, Permission, Query, Role, Storage } from "node-appwrite";
-import { InputFile } from "node-appwrite/file";
+import { ID, Query } from "node-appwrite";
 import { z } from "zod";
 import { getAdminUser } from "@/lib/authz";
 import { createPrivilegedAppwriteClient } from "@/lib/appwrite/server";
 import { isRateLimited } from "@/lib/rate-limit";
 
-const detailsSchema = z.object({ name: z.string().trim().min(2).max(160), designation: z.string().trim().min(2).max(160) });
+const detailsSchema = z.object({
+  name: z.string().trim().min(2, "Name must be at least 2 characters.").max(160, "Name must be at most 160 characters."),
+  designation: z.string().trim().min(2, "Designation must be at least 2 characters.").max(160, "Designation must be at most 160 characters."),
+});
 
 export async function GET() {
   if (!await getAdminUser()) return NextResponse.json({ error: "Administrator access required." }, { status: 403 });
@@ -16,64 +18,91 @@ export async function GET() {
   try {
     const result = await service.tablesDB.listRows({ databaseId: service.databaseId, tableId, queries: [Query.equal("contentKey", "authorized-signatory"), Query.limit(1)] });
     const row = result.rows[0] as (typeof result.rows)[number] & Record<string, unknown> | undefined;
-    if (!row || typeof row.content !== "string") return NextResponse.json({ configured: false });
-    const settings = JSON.parse(row.content) as { name?: string; designation?: string; signatureFileId?: string };
-    return NextResponse.json({ configured: Boolean(settings.name && settings.designation && settings.signatureFileId), name: settings.name ?? "", designation: settings.designation ?? "", signatureFileId: settings.signatureFileId ?? "" }, { headers: { "cache-control": "no-store" } });
-  } catch { return NextResponse.json({ error: "Signatory settings are unavailable." }, { status: 503 }); }
+    if (!row || typeof row.content !== "string") return NextResponse.json({ configured: false, name: "", designation: "" });
+    const settings = JSON.parse(row.content) as { name?: string; designation?: string };
+    const configured = Boolean(settings.name?.trim() && settings.designation?.trim());
+    return NextResponse.json({
+      configured,
+      name: settings.name?.trim() ?? "",
+      designation: settings.designation?.trim() ?? "",
+    }, { headers: { "cache-control": "no-store" } });
+  } catch {
+    return NextResponse.json({ error: "Signatory settings are unavailable." }, { status: 503 });
+  }
 }
 
 export async function POST(request: Request) {
-  if (isRateLimited(request, "signatory-settings", 5)) return NextResponse.json({ error: "Too many settings changes. Wait before trying again." }, { status: 429 });
+  if (isRateLimited(request, "signatory-settings", 10)) return NextResponse.json({ error: "Too many settings changes. Wait before trying again." }, { status: 429 });
   const admin = await getAdminUser();
   if (!admin) return NextResponse.json({ error: "Administrator access required." }, { status: 403 });
-  const form = await request.formData();
-  const parsed = detailsSchema.safeParse({ name: form.get("name"), designation: form.get("designation") });
-  const signature = form.get("signature");
-  if (!parsed.success) return NextResponse.json({ error: "Enter a signatory name and designation." }, { status: 400 });
-  if (!(signature instanceof File) || signature.size < 8 || signature.size > 2 * 1024 * 1024 || signature.type !== "image/png") return NextResponse.json({ error: "Upload a transparent PNG signature image up to 2 MB." }, { status: 400 });
-  const bytes = Buffer.from(await signature.arrayBuffer());
-  if (bytes.subarray(0, 8).toString("hex") !== "89504e470d0a1a0a") return NextResponse.json({ error: "The uploaded file is not a valid PNG image." }, { status: 400 });
-  if (bytes.length < 24) return NextResponse.json({ error: "The PNG image is incomplete." }, { status: 400 });
-  const width = bytes.readUInt32BE(16);
-  const height = bytes.readUInt32BE(20);
-  if (width < 1 || height < 1 || width > 4096 || height > 2048) return NextResponse.json({ error: "Signature image dimensions must be no larger than 4096 × 2048 pixels." }, { status: 400 });
+
+  let rawName = "";
+  let rawDesignation = "";
+
+  const contentType = request.headers.get("content-type") || "";
+  if (contentType.includes("application/json")) {
+    try {
+      const body = await request.json();
+      rawName = typeof body.name === "string" ? body.name : "";
+      rawDesignation = typeof body.designation === "string" ? body.designation : "";
+    } catch {
+      return NextResponse.json({ error: "Invalid JSON payload." }, { status: 400 });
+    }
+  } else {
+    try {
+      const form = await request.formData();
+      rawName = String(form.get("name") ?? "");
+      rawDesignation = String(form.get("designation") ?? "");
+    } catch {
+      return NextResponse.json({ error: "Invalid form data." }, { status: 400 });
+    }
+  }
+
+  const parsed = detailsSchema.safeParse({ name: rawName, designation: rawDesignation });
+  if (!parsed.success) {
+    const message = parsed.error.issues[0]?.message ?? "Enter a valid signatory name and designation.";
+    return NextResponse.json({ error: message }, { status: 400 });
+  }
+
   const service = createPrivilegedAppwriteClient();
   const tableId = process.env.APPWRITE_WEBSITE_CONTENT_TABLE_ID;
-  const bucketId = process.env.APPWRITE_DOCUMENTS_BUCKET_ID;
-  if (!service || !tableId || !bucketId) return NextResponse.json({ error: "Document storage is not configured. Run the Appwrite setup script first." }, { status: 503 });
-  let stage = "upload-signature";
-  let uploadedFileId = "";
+  if (!service || !tableId) return NextResponse.json({ error: "Signatory storage is not configured." }, { status: 503 });
+
+  let stage = "read-signatory-settings";
   try {
-    const storage = new Storage(service.client);
-    const uploaded = await storage.createFile({ bucketId, fileId: ID.unique(), file: InputFile.fromBuffer(bytes, `authorized-signature-${Date.now()}.png`), permissions: [Permission.read(Role.user(admin.$id))] });
-    uploadedFileId = uploaded.$id;
-    stage = "read-signatory-settings";
     const existing = await service.tablesDB.listRows({ databaseId: service.databaseId, tableId, queries: [Query.equal("contentKey", "authorized-signatory"), Query.limit(1)] });
-    const content = JSON.stringify({ name: parsed.data.name, designation: parsed.data.designation, signatureFileId: uploaded.$id, updatedAt: new Date().toISOString() });
+    const content = JSON.stringify({
+      name: parsed.data.name,
+      designation: parsed.data.designation,
+      updatedAt: new Date().toISOString(),
+    });
+
     if (existing.rows[0]) {
       stage = "update-signatory-settings";
-      await service.tablesDB.updateRow({ databaseId: service.databaseId, tableId, rowId: existing.rows[0].$id, data: { content, contentType: "authorized-signatory", isPublished: false, updatedBy: admin.$id } });
+      await service.tablesDB.updateRow({
+        databaseId: service.databaseId,
+        tableId,
+        rowId: existing.rows[0].$id,
+        data: { content, contentType: "authorized-signatory", isPublished: false, updatedBy: admin.$id },
+      });
     } else {
       stage = "create-signatory-settings";
-      await service.tablesDB.createRow({ databaseId: service.databaseId, tableId, rowId: ID.unique(), data: { contentKey: "authorized-signatory", contentType: "authorized-signatory", content, isPublished: false, updatedBy: admin.$id, publishedAt: null } });
+      await service.tablesDB.createRow({
+        databaseId: service.databaseId,
+        tableId,
+        rowId: ID.unique(),
+        data: { contentKey: "authorized-signatory", contentType: "authorized-signatory", content, isPublished: false, updatedBy: admin.$id, publishedAt: null },
+      });
     }
-    return NextResponse.json({ saved: true, signatureFileId: uploaded.$id }, { status: 201 });
+    return NextResponse.json({ saved: true, name: parsed.data.name, designation: parsed.data.designation }, { status: 200 });
   } catch (error) {
     const failure = (typeof error === "object" && error !== null ? error : {}) as { code?: unknown; type?: unknown };
     const code = typeof failure.code === "number" ? failure.code : undefined;
     const type = typeof failure.type === "string" ? failure.type : undefined;
     console.error("[documents/signatory] Appwrite request failed", { stage, code, type });
-    if (uploadedFileId) {
-      try { await new Storage(service.client).deleteFile({ bucketId, fileId: uploadedFileId }); }
-      catch { console.error("[documents/signatory] Could not clean up the failed private signature upload."); }
-    }
     if (type === "general_unauthorized_scope") {
-      const scope = stage === "upload-signature" ? "files.write" : "rows.read / rows.write";
-      return NextResponse.json({ error: `Appwrite API key is missing ${scope}. Add the scope to APPWRITE_API_KEY and restart the dev server.` }, { status: 503 });
+      return NextResponse.json({ error: "Appwrite API key is missing rows.read / rows.write. Add the scope to APPWRITE_API_KEY and restart the dev server." }, { status: 503 });
     }
-    if (code === 404 && stage === "upload-signature") return NextResponse.json({ error: "Appwrite could not find the documents bucket. Check APPWRITE_DOCUMENTS_BUCKET_ID and run the Appwrite setup script." }, { status: 503 });
-    if (code === 400 && stage === "upload-signature") return NextResponse.json({ error: "Appwrite rejected this PNG upload. Confirm the bucket accepts PNG files and try a smaller valid PNG." }, { status: 400 });
-    if (code === 409) return NextResponse.json({ error: "A signatory settings record already exists. Reload the page and try saving again." }, { status: 409 });
     return NextResponse.json({ error: `Could not save authorized signatory settings during ${stage.replaceAll("-", " ")}${code ? ` (Appwrite HTTP ${code}${type ? `, ${type}` : ""})` : ". Check the Appwrite error shown in the dev terminal."}` }, { status: 502 });
   }
 }

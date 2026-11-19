@@ -63,7 +63,6 @@ async function loadTemplateHtml(type) {
 export async function renderDocumentTemplate({
   documentType,
   data,
-  signatureDataUrl = null,
   qrCodeDataUrl = null,
 }) {
   const templateDir = TEMPLATE_DIRS[documentType];
@@ -77,12 +76,11 @@ export async function renderDocumentTemplate({
 
   // Load and inline default assets from the assets/ directory
   const logoDataUrl = await loadAssetAsDataUrl(join(assetsDir, "brand-logo.png"), "image/png");
-  const defaultSignDataUrl = await loadAssetAsDataUrl(join(assetsDir, "yash-sign.png"), "image/png");
-  const activeSignDataUrl = signatureDataUrl || defaultSignDataUrl;
+  const signDataUrl = await loadAssetAsDataUrl(join(assetsDir, "yash-sign.png"), "image/png");
 
   // Replace asset references in HTML with data URLs
   html = html.replace(/src="(?:assets\/)?brand-logo\.png"/g, `src="${logoDataUrl}"`);
-  html = html.replace(/src="(?:assets\/)?yash-sign\.png"/g, `src="${activeSignDataUrl}"`);
+  html = html.replace(/src="(?:assets\/)?yash-sign\.png"/g, `src="${signDataUrl}"`);
 
   if (documentType === "internship_completion" || documentType === "project_completion") {
     const badgeDataUrl = await loadAssetAsDataUrl(join(assetsDir, "crewline-badge-transparent.png"), "image/png");
@@ -91,6 +89,10 @@ export async function renderDocumentTemplate({
 
   // Token dictionary mapping
   const tokenMap = {};
+
+  if (!data.signatoryName || !data.signatoryDesignation) {
+    throw new Error("Authorized signatory details (signatory_name and signatory_designation) are missing.");
+  }
 
   if (documentType === "offer") {
     tokenMap["{{offer_id}}"] = safeText(data.documentId || data.offerId);
@@ -102,8 +104,8 @@ export async function renderDocumentTemplate({
     tokenMap["{{start_date}}"] = dateText(data.startDate);
     tokenMap["{{end_date}}"] = dateText(data.endDate);
     tokenMap["{{work_mode}}"] = safeText(data.workMode || "Remote");
-    tokenMap["{{signatory_name}}"] = safeText(data.signatoryName || "Yash Gautam");
-    tokenMap["{{signatory_designation}}"] = safeText(data.signatoryDesignation || "Founder");
+    tokenMap["{{signatory_name}}"] = safeText(data.signatoryName);
+    tokenMap["{{signatory_designation}}"] = safeText(data.signatoryDesignation);
   } else if (documentType === "internship_completion") {
     tokenMap["{{certificate_id}}"] = safeText(data.documentId || data.certificateId);
     tokenMap["{{issue_date}}"] = dateText(data.issueDate);
@@ -116,8 +118,8 @@ export async function renderDocumentTemplate({
     tokenMap["{{work_mode}}"] = safeText(data.workMode || "Remote");
     tokenMap["{{qr_code_image}}"] = qrCodeDataUrl || "";
     tokenMap["{{verification_url}}"] = safeText(data.verificationUrl);
-    tokenMap["{{signatory_name}}"] = safeText(data.signatoryName || "Yash Gautam");
-    tokenMap["{{signatory_designation}}"] = safeText(data.signatoryDesignation || "Founder");
+    tokenMap["{{signatory_name}}"] = safeText(data.signatoryName);
+    tokenMap["{{signatory_designation}}"] = safeText(data.signatoryDesignation);
   } else if (documentType === "project_completion") {
     tokenMap["{{certificate_id}}"] = safeText(data.documentId || data.certificateId);
     tokenMap["{{issue_date}}"] = dateText(data.issueDate);
@@ -127,8 +129,8 @@ export async function renderDocumentTemplate({
     tokenMap["{{internship_domain}}"] = safeText(data.domain || data.internshipDomain);
     tokenMap["{{qr_code_image}}"] = qrCodeDataUrl || "";
     tokenMap["{{verification_url}}"] = safeText(data.verificationUrl);
-    tokenMap["{{signatory_name}}"] = safeText(data.signatoryName || "Yash Gautam");
-    tokenMap["{{signatory_designation}}"] = safeText(data.signatoryDesignation || "Founder");
+    tokenMap["{{signatory_name}}"] = safeText(data.signatoryName);
+    tokenMap["{{signatory_designation}}"] = safeText(data.signatoryDesignation);
   }
 
   // Substitute all tokens

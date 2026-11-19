@@ -19,7 +19,9 @@ import { renderDocumentTemplate } from "./utils/template-renderer.js";
  * @param {Function} context.error - Error logging function
  */
 const documentGeneratorFunction = async ({ req, res, log, error }) => {
-  const documentService = new DocumentService();
+  // Use exclusively the ephemeral execution key injected by Appwrite per request
+  const apiKey = req.headers?.["x-appwrite-key"] || "";
+  const documentService = new DocumentService({ apiKey });
 
   // Safely parse request body
   let payload = {};

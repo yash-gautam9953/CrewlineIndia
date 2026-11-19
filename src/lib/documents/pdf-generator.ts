@@ -2,7 +2,19 @@ import "server-only";
 import { chromium } from "playwright";
 
 export async function generatePdf(html: string, landscape: boolean) {
-  const browser = await chromium.launch({ headless: true, args: ["--no-sandbox", "--disable-dev-shm-usage"] });
+  const wsEndpoint =
+    process.env.CHROME_WS_ENDPOINT ||
+    (process.env.BROWSERLESS_API_KEY
+      ? `wss://chrome.browserless.io?token=${process.env.BROWSERLESS_API_KEY}`
+      : null);
+
+  const browser = wsEndpoint
+    ? await chromium.connectOverCDP(wsEndpoint)
+    : await chromium.launch({
+        headless: true,
+        args: ["--no-sandbox", "--disable-dev-shm-usage"],
+      });
+
   try {
     const page = await browser.newPage({ viewport: { width: 1280, height: 900 }, deviceScaleFactor: 2 });
     await page.setContent(html, { waitUntil: "networkidle", timeout: 20000 });

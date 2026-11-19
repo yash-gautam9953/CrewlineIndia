@@ -11,14 +11,12 @@ export async function getStudentData(userId: string) {
   const taskTable = process.env.APPWRITE_TASKS_TABLE_ID;
   const submissionTable = process.env.APPWRITE_SUBMISSIONS_TABLE_ID;
   const taskAssignmentsTable = process.env.APPWRITE_TASK_ASSIGNMENTS_TABLE_ID;
-  const notificationTable = process.env.APPWRITE_NOTIFICATIONS_TABLE_ID;
   if (!service || !profileTable || !applicationTable || !internshipTable) throw new Error("Student data storage is not configured.");
 
-  const [profiles, applications, enrollmentRows, notificationRows] = await Promise.all([
+  const [profiles, applications, enrollmentRows] = await Promise.all([
     service.tablesDB.listRows({ databaseId: service.databaseId, tableId: profileTable, queries: [Query.equal("authUserId", userId), Query.limit(1)] }),
     service.tablesDB.listRows({ databaseId: service.databaseId, tableId: applicationTable, queries: [Query.equal("studentId", userId), Query.orderDesc("$createdAt"), Query.limit(50)] }),
     enrollmentTable ? service.tablesDB.listRows({ databaseId: service.databaseId, tableId: enrollmentTable, queries: [Query.equal("studentId", userId), Query.orderDesc("$createdAt"), Query.limit(50)] }) : Promise.resolve({ rows: [], total: 0 }),
-    notificationTable ? service.tablesDB.listRows({ databaseId: service.databaseId, tableId: notificationTable, queries: [Query.equal("userId", userId), Query.orderDesc("$createdAt"), Query.limit(50)] }) : Promise.resolve({ rows: [], total: 0 }),
   ]);
   const rows = applications.rows;
   const internshipIds = [...new Set(rows.map((row) => row.internshipId))];
@@ -85,6 +83,5 @@ export async function getStudentData(userId: string) {
       });
       return { id: task.$id, internshipId: String(taskData.internshipId), enrollmentId: enrollment?.$id ?? "", internshipTitle: String(internships.get(String(taskData.internshipId))?.title ?? "Internship"), title: String(taskData.title), instructions: String(taskData.instructions), isMandatory: Boolean(taskData.isMandatory), dueAt: typeof taskData.dueAt === "string" ? taskData.dueAt : "", resourceFileId: String(taskData.resourceFileId ?? ""), resourceFileName: String(taskData.resourceFileName ?? ""), resourceVersion: Number(taskData.resourceVersion ?? 1), maxScore: taskData.maxScore, submissionId: submission?.$id ?? "", submissionStatus: late ? "late_submission" : String(submission?.status ?? "not_started"), submittedAt: String(submittedAt), projectTitle: String((submission as (typeof submission & Record<string, unknown>) | undefined)?.projectTitle ?? ""), projectDescription: String((submission as (typeof submission & Record<string, unknown>) | undefined)?.projectDescription ?? ""), repositoryUrl: String(submission?.repositoryUrl ?? ""), liveUrl: String(submission?.liveUrl ?? ""), explanation: String(submission?.explanation ?? ""), attachments: attachmentList(submission), feedback: review ? String((review as typeof review & Record<string, unknown>).feedback ?? "") : "", score: review ? (review as typeof review & Record<string, unknown>).score : null, history };
     }),
-    notifications: notificationRows.rows.map((row) => ({ id: row.$id, title: String(row.title), body: String(row.body), type: String(row.type), isRead: Boolean(row.isRead), createdAt: row.$createdAt, targetUrl: String(row.targetUrl ?? "") })),
   };
 }
