@@ -4,6 +4,13 @@ import { calculateInternshipDates } from "./internship-dates-helper.js";
  * Eligibility Verification Service for Crewline Documents.
  * Enforces strict server-side state machines before any document can be generated or issued.
  */
+function normalizeWorkMode(mode) {
+  const raw = String(mode || "Virtual / Remote").trim();
+  if (/^remote$/i.test(raw)) return "Virtual / Remote";
+  if (/^hybrid$/i.test(raw)) return "Hybrid";
+  if (/^onsite$/i.test(raw) || /^on-site$/i.test(raw)) return "On-site";
+  return raw || "Virtual / Remote";
+}
 export class EligibilityService {
   /**
    * Validates eligibility for issuing an Internship Offer Letter.
@@ -58,7 +65,7 @@ export class EligibilityService {
       duration: String(duration),
       startDate,
       endDate,
-      workMode: offerDetails.workMode || application.offerMode || "Remote",
+      workMode: normalizeWorkMode(offerDetails.workMode || application.offerMode || "Virtual / Remote"),
       internshipId: String(application.internshipId),
       sourceId: String(applicationId),
     };
@@ -111,9 +118,13 @@ export class EligibilityService {
       throw new Error("Internship certificate requires payment verification or waiver.");
     }
 
-    // Verify all mandatory tasks have approved submissions
+    // Verify all mandatory tasks assigned to this student have approved submissions
     const mandatoryTasks = await databaseService.getMandatoryTasks(internshipId);
     for (const task of mandatoryTasks) {
+      if (task.assignmentMode === "selected_students") {
+        const assignment = await databaseService.getTaskAssignment(task.$id, studentId);
+        if (!assignment) continue;
+      }
       const approvedSubmission = await databaseService.getApprovedTaskSubmission(studentId, task.$id);
       if (!approvedSubmission) {
         throw new Error(
@@ -123,10 +134,12 @@ export class EligibilityService {
     }
 
     const startDate = enrollment.startedAt ? String(enrollment.startedAt).slice(0, 10) : "";
-    const endDate = enrollment.completedAt ? String(enrollment.completedAt).slice(0, 10) : "";
+    const scheduledEnd = enrollment.scheduledEndAt ? String(enrollment.scheduledEndAt).slice(0, 10) : "";
+    const completedDate = enrollment.completedAt ? String(enrollment.completedAt).slice(0, 10) : "";
+    const endDate = scheduledEnd || completedDate;
 
     if (!startDate || !endDate) {
-      throw new Error("Enrollment start and completion dates must be recorded before certificate issuance.");
+      throw new Error("Enrollment start and scheduled end dates must be recorded before certificate issuance.");
     }
 
     return {
@@ -134,11 +147,11 @@ export class EligibilityService {
       studentName,
       documentTitle: String(internship.title || "Internship"),
       domain: String(internship.domain || "Technology"),
-      duration: String(internship.duration || "1 Month"),
+      duration: String(enrollment.selectedDuration || internship.duration || "1 Month"),
       startDate,
       endDate,
       completionDate: String(enrollment.completedAt || new Date().toISOString()),
-      workMode: "Remote",
+      workMode: "Virtual / Remote",
       internshipId,
       sourceId: String(enrollmentId),
     };

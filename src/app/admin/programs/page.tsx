@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 import { Query } from "node-appwrite";
 import { getAdminUser } from "@/lib/authz";
 import { createPrivilegedAppwriteClient } from "@/lib/appwrite/server";
+import { getAppwriteResources } from "@/lib/appwrite/resources";
 import { AdminProgramForm } from "@/components/admin-program-form";
 
 export const metadata: Metadata = { title: "Manage internships", robots: { index: false, follow: false } };
@@ -11,8 +12,9 @@ export const metadata: Metadata = { title: "Manage internships", robots: { index
 export default async function AdminProgramsPage() {
   if (!await getAdminUser()) redirect("/login?next=%2Fadmin%2Fprograms");
   const service = createPrivilegedAppwriteClient();
-  const tableId = process.env.APPWRITE_INTERNSHIPS_TABLE_ID;
-  if (!service || !tableId) throw new Error("Internship table is not configured.");
+  if (!service) throw new Error("Internship table is not configured.");
+  const { tables } = await getAppwriteResources();
+  const tableId = tables.internships;
   const programs = await service.tablesDB.listRows({ databaseId: service.databaseId, tableId, queries: [Query.orderDesc("$createdAt"), Query.limit(100)] });
   return <main className="min-h-[70vh] bg-cloud dark:bg-[#0B1220] px-5 py-10 sm:px-8 sm:py-14"><div className="mx-auto max-w-7xl"><Link href="/admin" className="text-sm font-semibold text-brand dark:text-blue-400">← Admin overview</Link><h1 className="mt-4 text-3xl font-bold text-navy dark:text-[#F1F5FB]">Manage internships</h1><p className="mt-2 text-slate-600 dark:text-[#A8B5C8]">Create and publish programs for student applications.</p>
     <section className="mt-7 rounded-2xl border border-slate-200 bg-white p-6 sm:p-8 dark:border-slate-800 dark:bg-[#151F32]"><h2 className="mb-6 text-lg font-bold text-navy dark:text-[#F1F5FB]">Create internship</h2><AdminProgramForm /></section>

@@ -2,10 +2,12 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { ArrowLeft, CheckCircle2, Clock, Download, FileText, Lock, ShieldCheck, Sparkles } from "lucide-react";
-import { Query } from "node-appwrite";
+import { ID, Permission, Query, Role } from "node-appwrite";
 import { getSessionUser } from "@/lib/appwrite/session";
 import { createPrivilegedAppwriteClient } from "@/lib/appwrite/server";
+import { getAppwriteResources } from "@/lib/appwrite/resources";
 import { formatCrewlineDate } from "@/lib/internship-dates";
+import { readPaymentSettings } from "@/lib/payment-settings";
 import { TaskSubmissionForm } from "@/components/task-submission-form";
 import { PaymentSubmissionForm } from "@/components/payment-submission-form";
 
@@ -28,17 +30,17 @@ export default async function InternshipDetailsPage({ params, searchParams }: Pr
 
   const [{ enrollmentId }, { enrolled }] = await Promise.all([params, searchParams]);
   const service = createPrivilegedAppwriteClient();
-  const enrollmentsTable = process.env.APPWRITE_ENROLLMENTS_TABLE_ID;
-  const internshipsTable = process.env.APPWRITE_INTERNSHIPS_TABLE_ID;
-  const tasksTable = process.env.APPWRITE_TASKS_TABLE_ID;
-  const submissionsTable = process.env.APPWRITE_SUBMISSIONS_TABLE_ID;
-  const reviewsTable = process.env.APPWRITE_REVIEWS_TABLE_ID;
-  const documentsTable = process.env.APPWRITE_DOCUMENTS_TABLE_ID;
-  const paymentsTable = process.env.APPWRITE_PAYMENTS_TABLE_ID;
-
-  if (!service || !enrollmentsTable || !internshipsTable || !tasksTable) {
+  if (!service) {
     throw new Error("Internship workspace is not fully configured.");
   }
+  const { tables } = await getAppwriteResources();
+  const enrollmentsTable = tables.enrollments;
+  const internshipsTable = tables.internships;
+  const tasksTable = tables.tasks;
+  const submissionsTable = tables.submissions;
+  const reviewsTable = tables.reviews;
+  const documentsTable = tables.documents;
+  const paymentsTable = tables.payments;
 
   let enrollment: Record<string, unknown>;
   try {
@@ -59,7 +61,7 @@ export default async function InternshipDetailsPage({ params, searchParams }: Pr
   const internshipId = String(enrollment.internshipId);
 
   // Load related resources in parallel
-  const [internshipResult, taskResults, submissionResults, reviewResults, documentResults, paymentResults] =
+  const [internshipResult, taskResults, submissionResults, reviewResults, documentResults, paymentResults, paymentSettings] =
     await Promise.all([
       service.tablesDB.getRow({
         databaseId: service.databaseId,
@@ -119,6 +121,8 @@ export default async function InternshipDetailsPage({ params, searchParams }: Pr
             ],
           }).catch(() => ({ rows: [] }))
         : Promise.resolve({ rows: [] }),
+
+      readPaymentSettings(),
     ]);
 
   const internship = (internshipResult ?? {}) as Record<string, unknown>;
@@ -134,7 +138,31 @@ export default async function InternshipDetailsPage({ params, searchParams }: Pr
     sourceId?: string;
     internshipId?: string;
   })[];
-  const payment = paymentResults.rows[0] as Record<string, unknown> | undefined;
+  let payment = paymentResults.rows[0] as Record<string, unknown> | undefined;
+  if (!payment && paymentsTable) {
+    payment = await service.tablesDB.createRow({
+      databaseId: service.databaseId,
+      tableId: paymentsTable,
+      rowId: ID.unique(),
+      data: {
+        studentId: session.user.$id,
+        applicationId: String(enrollment.applicationId ?? ""),
+        enrollmentId,
+        amountDue: paymentSettings.feeAmount,
+        currency: "INR",
+        paymentInstructions: paymentSettings.instructions || "Complete the UPI payment using the Google Form scanner and submit your transaction reference below for verification.",
+        status: "pending",
+        transactionReference: null,
+        proofFileId: null,
+        verificationReason: null,
+        verifiedBy: null,
+        verifiedAt: null,
+        createdBy: "system",
+        createdAt: new Date().toISOString(),
+      },
+      permissions: [Permission.read(Role.user(session.user.$id))],
+    }).catch(() => undefined) as Record<string, unknown> | undefined;
+  }
 
   // Active / latest submission
   const latestSubmission = submissions[0] as Record<string, unknown> | undefined;
@@ -296,64 +324,7 @@ export default async function InternshipDetailsPage({ params, searchParams }: Pr
           </div>
         </section>
 
-        {/* SECTION B: INTERNSHIP COMPLETION CERTIFICATE */}
-        <section
-          className={`mt-6 rounded-3xl border p-6 shadow-sm sm:p-8 ${
-            internshipCertDoc
-              ? "border-emerald-200 bg-emerald-50/40 dark:border-emerald-900/40 dark:bg-emerald-950/20"
-              : "border-slate-200/80 bg-white dark:border-slate-800 dark:bg-[#151F32]"
-          }`}
-        >
-          <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-center">
-            <div className="flex items-start gap-3.5">
-              <div
-                className={`flex h-11 w-11 items-center justify-center rounded-2xl ${
-                  internshipCertDoc
-                    ? "bg-emerald-100 text-emerald-800 dark:bg-emerald-900/60 dark:text-emerald-300"
-                    : "bg-slate-100 text-slate-500 dark:bg-[#1C2940] dark:text-slate-400"
-                }`}
-              >
-                {internshipCertDoc ? <ShieldCheck size={22} /> : <Lock size={20} />}
-              </div>
-              <div>
-                <div className="flex items-center gap-2">
-                  <h2 className="text-lg font-bold text-[#101D35] dark:text-[#F1F5FB]">Internship Completion Certificate</h2>
-                  <span
-                    className={`rounded-full px-2.5 py-0.5 text-xs font-semibold ${
-                      internshipCertDoc
-                        ? "bg-emerald-100 text-emerald-800 dark:bg-emerald-900/50 dark:text-emerald-300"
-                        : "bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-400"
-                    }`}
-                  >
-                    {internshipCertDoc ? "UNLOCKED" : "LOCKED"}
-                  </span>
-                </div>
-                <p className="mt-1 text-xs text-slate-600 dark:text-[#A8B5C8]">
-                  {internshipCertDoc
-                    ? `Issued on ${formatCrewlineDate(internshipCertDoc.issueDate)}. Verified credential ID: ${internshipCertDoc.$id}`
-                    : "LOCKED — Unlocks automatically upon final admin approval of your submitted project."}
-                </p>
-              </div>
-            </div>
-
-            {internshipCertDoc ? (
-              <a
-                href={`/api/documents/${internshipCertDoc.$id}/download`}
-                target="_blank"
-                rel="noreferrer"
-                className="admin-btn-primary inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-[#1769D2] px-5 text-sm font-semibold text-white shadow-sm transition hover:bg-[#123B70]"
-              >
-                <Download size={16} className="text-white" /> Download Certificate PDF
-              </a>
-            ) : (
-              <span className="inline-flex items-center gap-1.5 rounded-xl border border-slate-200 bg-slate-50 px-4 py-2 text-xs font-semibold text-slate-500 dark:border-slate-800 dark:bg-[#1C2940] dark:text-slate-400">
-                <Lock size={14} /> Locked until Approval
-              </span>
-            )}
-          </div>
-        </section>
-
-        {/* SECTION C: TASK PDF & INSTRUCTIONS */}
+        {/* SECTION B: TASK PDF & INSTRUCTIONS */}
         <section className="mt-8 rounded-3xl border border-slate-200/80 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-[#151F32] sm:p-8">
           <div className="flex items-center justify-between">
             <p className="text-xs font-bold uppercase tracking-[.18em] text-[#1769D2] dark:text-[#2575E6]">Assigned Tasks</p>
@@ -542,42 +513,150 @@ export default async function InternshipDetailsPage({ params, searchParams }: Pr
           )}
         </section>
 
-        {/* SECTION E: PROJECT COMPLETION CERTIFICATE */}
+        {/* SECTION D: UPI PAYMENT VIA GOOGLE FORM */}
+        {payment && (
+          <section className="mt-8 rounded-3xl border border-slate-200/80 bg-white p-6 shadow-sm sm:p-8">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <div>
+                <p className="text-xs font-bold uppercase tracking-[.18em] text-[#1769D2]">Step 2 · Payment Verification</p>
+                <h2 className="mt-1 text-xl font-bold text-[#101D35]">UPI Payment via Google Form</h2>
+              </div>
+              <span
+                className={`rounded-full px-3 py-1 text-xs font-bold ${
+                  paymentVerified
+                    ? "bg-emerald-100 text-emerald-800"
+                    : paymentStatus === "submitted"
+                      ? "bg-blue-100 text-blue-800"
+                      : paymentStatus === "rejected"
+                        ? "bg-red-100 text-red-800"
+                        : "bg-amber-100 text-amber-800"
+                }`}
+              >
+                {paymentVerified
+                  ? "Payment Verified"
+                  : paymentStatus === "submitted"
+                    ? "Verification Requested (Under Review)"
+                    : paymentStatus === "rejected"
+                      ? "Payment Rejected — Retry"
+                      : "Payment Pending"}
+              </span>
+            </div>
+
+            <div className="mt-4 rounded-2xl border border-slate-100 bg-slate-50/80 p-4 text-sm">
+              <p className="font-semibold text-[#101D35]">
+                {payment.amountDue || paymentSettings.feeAmount
+                  ? `${String(payment.currency ?? "INR")} ${String(payment.amountDue ?? paymentSettings.feeAmount)}`
+                  : "Internship Processing & Certificate Fee"} · Status: {paymentStatus === "not_applicable" ? "pending" : paymentStatus.replaceAll("_", " ")}
+              </p>
+              {(Boolean(payment.paymentInstructions) || Boolean(paymentSettings.instructions)) && (
+                <p className="mt-2 whitespace-pre-wrap text-xs leading-5 text-slate-600">
+                  {String(payment.paymentInstructions || paymentSettings.instructions)}
+                </p>
+              )}
+              {Boolean(payment.transactionReference) && (
+                <p className="mt-2 font-mono text-xs text-slate-500">
+                  Submitted Transaction Reference: {String(payment.transactionReference)}
+                </p>
+              )}
+              {Boolean(payment.verificationReason) && (
+                <p className="mt-2 text-xs font-medium text-amber-900">Admin review note: {String(payment.verificationReason)}</p>
+              )}
+            </div>
+
+            {["pending", "rejected", "not_applicable"].includes(paymentStatus) && (
+              <PaymentSubmissionForm
+                paymentId={String(payment.$id)}
+                disabled={false}
+                googleFormUrl={paymentSettings.googleFormUrl}
+              />
+            )}
+          </section>
+        )}
+
+        {/* SECTION E: CERTIFICATES (LOCKED UNTIL PROJECT APPROVED & PAYMENT VERIFIED) */}
         <section
-          className={`mt-6 rounded-3xl border p-6 shadow-sm sm:p-8 ${
-            projectCertDoc
-              ? "border-emerald-200 bg-emerald-50/40 dark:border-emerald-900/40 dark:bg-emerald-950/20"
-              : "border-slate-200/80 bg-white dark:border-slate-800 dark:bg-[#151F32]"
+          className={`mt-8 rounded-3xl border p-6 shadow-sm sm:p-8 ${
+            internshipCertDoc
+              ? "border-emerald-200 bg-emerald-50/40"
+              : "border-slate-200/80 bg-white"
           }`}
         >
           <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-center">
             <div className="flex items-start gap-3.5">
               <div
                 className={`flex h-11 w-11 items-center justify-center rounded-2xl ${
-                  projectCertDoc
-                    ? "bg-emerald-100 text-emerald-800 dark:bg-emerald-900/60 dark:text-emerald-300"
-                    : "bg-slate-100 text-slate-500 dark:bg-[#1C2940] dark:text-slate-400"
+                  internshipCertDoc ? "bg-emerald-100 text-emerald-800" : "bg-slate-100 text-slate-500"
+                }`}
+              >
+                {internshipCertDoc ? <ShieldCheck size={22} /> : <Lock size={20} />}
+              </div>
+              <div>
+                <div className="flex items-center gap-2">
+                  <h2 className="text-lg font-bold text-[#101D35]">Internship Completion Certificate</h2>
+                  <span
+                    className={`rounded-full px-2.5 py-0.5 text-xs font-semibold ${
+                      internshipCertDoc ? "bg-emerald-100 text-emerald-800" : "bg-slate-100 text-slate-600"
+                    }`}
+                  >
+                    {internshipCertDoc ? "UNLOCKED" : "LOCKED"}
+                  </span>
+                </div>
+                <p className="mt-1 text-xs text-slate-600">
+                  {internshipCertDoc
+                    ? `Issued on ${formatCrewlineDate(internshipCertDoc.issueDate)}. Verified credential ID: ${internshipCertDoc.$id}`
+                    : "LOCKED — Submit your project and complete UPI payment. Unlocks when Admin approves both."}
+                </p>
+              </div>
+            </div>
+
+            {internshipCertDoc ? (
+              <a
+                href={`/api/documents/${internshipCertDoc.$id}/download`}
+                target="_blank"
+                rel="noreferrer"
+                className="admin-btn-primary inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-[#1769D2] px-5 text-sm font-semibold text-white shadow-sm transition hover:bg-[#123B70]"
+              >
+                <Download size={16} className="text-white" /> Download Certificate PDF
+              </a>
+            ) : (
+              <span className="inline-flex items-center gap-1.5 rounded-xl border border-slate-200 bg-slate-50 px-4 py-2 text-xs font-semibold text-slate-500">
+                <Lock size={14} /> Locked until Approval
+              </span>
+            )}
+          </div>
+        </section>
+
+        <section
+          className={`mt-6 rounded-3xl border p-6 shadow-sm sm:p-8 ${
+            projectCertDoc
+              ? "border-emerald-200 bg-emerald-50/40"
+              : "border-slate-200/80 bg-white"
+          }`}
+        >
+          <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-center">
+            <div className="flex items-start gap-3.5">
+              <div
+                className={`flex h-11 w-11 items-center justify-center rounded-2xl ${
+                  projectCertDoc ? "bg-emerald-100 text-emerald-800" : "bg-slate-100 text-slate-500"
                 }`}
               >
                 {projectCertDoc ? <ShieldCheck size={22} /> : <Lock size={20} />}
               </div>
               <div>
                 <div className="flex items-center gap-2">
-                  <h2 className="text-lg font-bold text-[#101D35] dark:text-[#F1F5FB]">Project Completion Certificate</h2>
+                  <h2 className="text-lg font-bold text-[#101D35]">Project Completion Certificate</h2>
                   <span
                     className={`rounded-full px-2.5 py-0.5 text-xs font-semibold ${
-                      projectCertDoc
-                        ? "bg-emerald-100 text-emerald-800 dark:bg-emerald-900/50 dark:text-emerald-300"
-                        : "bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-400"
+                      projectCertDoc ? "bg-emerald-100 text-emerald-800" : "bg-slate-100 text-slate-600"
                     }`}
                   >
                     {projectCertDoc ? "UNLOCKED" : "LOCKED"}
                   </span>
                 </div>
-                <p className="mt-1 text-xs text-slate-600 dark:text-[#A8B5C8]">
+                <p className="mt-1 text-xs text-slate-600">
                   {projectCertDoc
                     ? `Issued on ${formatCrewlineDate(projectCertDoc.issueDate)}. Verified credential ID: ${projectCertDoc.$id}`
-                    : "LOCKED — Unlocks automatically upon admin approval of your submitted project."}
+                    : "LOCKED — Submit your project and complete UPI payment. Unlocks when Admin approves both."}
                 </p>
               </div>
             </div>
@@ -592,58 +671,12 @@ export default async function InternshipDetailsPage({ params, searchParams }: Pr
                 <Download size={16} className="text-white" /> Download Certificate PDF
               </a>
             ) : (
-              <span className="inline-flex items-center gap-1.5 rounded-xl border border-slate-200 bg-slate-50 px-4 py-2 text-xs font-semibold text-slate-500 dark:border-slate-800 dark:bg-[#1C2940] dark:text-slate-400">
+              <span className="inline-flex items-center gap-1.5 rounded-xl border border-slate-200 bg-slate-50 px-4 py-2 text-xs font-semibold text-slate-500">
                 <Lock size={14} /> Locked until Approval
               </span>
             )}
           </div>
         </section>
-
-        {/* SECTION F: PAYMENT STATUS */}
-        {payment && payment.status !== "not_applicable" && (
-          <section className="mt-8 rounded-3xl border border-slate-200/80 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-[#151F32] sm:p-8">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-xs font-bold uppercase tracking-[.18em] text-[#1769D2] dark:text-[#2575E6]">Fee Verification</p>
-                <h2 className="mt-1 text-xl font-bold text-[#101D35] dark:text-[#F1F5FB]">Internship Payment Status</h2>
-              </div>
-              <span
-                className={`rounded-full px-3 py-1 text-xs font-bold ${
-                  paymentVerified
-                    ? "bg-emerald-100 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300"
-                    : payment.status === "rejected"
-                      ? "bg-red-100 text-red-800 dark:bg-red-950/60 dark:text-red-300"
-                      : "bg-amber-100 text-amber-800 dark:bg-amber-950/60 dark:text-amber-300"
-                }`}
-              >
-                {paymentVerified ? "Payment Verified" : payment.status === "rejected" ? "Payment Rejected" : "Payment Pending"}
-              </span>
-            </div>
-
-            <div className="mt-4 rounded-2xl border border-slate-100 bg-slate-50/80 p-4 text-sm dark:border-slate-800 dark:bg-[#1C2940]/40">
-              <p className="font-semibold text-[#101D35] dark:text-[#F1F5FB]">
-                {String(payment.currency ?? "INR")} {String(payment.amountDue ?? "Amount specified")} · Status: {paymentStatus.replaceAll("_", " ")}
-              </p>
-              {Boolean(payment.paymentInstructions) && (
-                <p className="mt-2 whitespace-pre-wrap text-xs leading-5 text-slate-600 dark:text-[#A8B5C8]">{String(payment.paymentInstructions)}</p>
-              )}
-              {Boolean(payment.transactionReference) && (
-                <p className="mt-2 font-mono text-xs text-slate-500 dark:text-slate-400">
-                  Submitted Transaction Reference: {String(payment.transactionReference)}
-                </p>
-              )}
-              {Boolean(payment.verificationReason) && (
-                <p className="mt-2 text-xs font-medium text-amber-900 dark:text-amber-300">Admin review note: {String(payment.verificationReason)}</p>
-              )}
-            </div>
-
-            {["pending", "rejected"].includes(paymentStatus) && (
-              <div className="mt-4">
-                <PaymentSubmissionForm paymentId={String(payment.$id)} disabled={false} />
-              </div>
-            )}
-          </section>
-        )}
       </div>
     </main>
   );

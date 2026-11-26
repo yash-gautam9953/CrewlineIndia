@@ -3,6 +3,7 @@ import { Storage } from "node-appwrite";
 import { getAdminUser } from "@/lib/authz";
 import { getSessionUser } from "@/lib/appwrite/session";
 import { createPrivilegedAppwriteClient } from "@/lib/appwrite/server";
+import { getAppwriteResources } from "@/lib/appwrite/resources";
 import { studentCanAccessTask } from "@/lib/task-access";
 
 export const runtime = "nodejs";
@@ -11,9 +12,10 @@ export async function GET(_request: Request, { params }: { params: Promise<{ tas
   const session = await getSessionUser();
   if (!session) return NextResponse.json({ error: "Sign in to open this resource." }, { status: 401 });
   const service = createPrivilegedAppwriteClient();
-  const taskTable = process.env.APPWRITE_TASKS_TABLE_ID;
-  const bucketId = process.env.APPWRITE_SUBMISSIONS_BUCKET_ID;
-  if (!service || !taskTable || !bucketId) return NextResponse.json({ error: "Task resource storage is not configured." }, { status: 503 });
+  const resources = service ? await getAppwriteResources().catch(() => null) : null;
+  if (!service || !resources) return NextResponse.json({ error: "Task resource storage is not configured." }, { status: 503 });
+  const taskTable = resources.tables.tasks;
+  const bucketId = resources.buckets.submissionsBucket;
   const { taskId } = await params;
   try {
     const task = await service.tablesDB.getRow({ databaseId: service.databaseId, tableId: taskTable, rowId: taskId }) as Record<string, unknown>;

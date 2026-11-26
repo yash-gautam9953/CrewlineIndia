@@ -4,17 +4,24 @@ import { join } from "node:path";
 import { ID, Permission, Query, Role, Storage } from "node-appwrite";
 import { InputFile } from "node-appwrite/file";
 import { createPrivilegedAppwriteClient } from "@/lib/appwrite/server";
+import { getAppwriteResources } from "@/lib/appwrite/resources";
 import { prepareDocument, type DocumentSnapshot } from "./document-validation";
 import { generateDocumentId, getEventKey, type DocumentType } from "./document-id-generator";
 import { generatePdf } from "./pdf-generator";
 import { renderDocumentHtml } from "./templates";
+import { invokeDocumentFunction, isDocumentFunctionConfigured } from "./function-client";
 
-export function getDocumentsConfig() {
+export async function getDocumentsConfig() {
   const service = createPrivilegedAppwriteClient();
-  const tableId = process.env.APPWRITE_DOCUMENTS_TABLE_ID;
-  const bucketId = process.env.APPWRITE_DOCUMENTS_BUCKET_ID;
-  if (!service || !tableId || !bucketId) return null;
-  return { ...service, tableId, bucketId, storage: new Storage(service.client) };
+  if (!service) return null;
+  const resources = await getAppwriteResources().catch(() => null);
+  if (!resources) return null;
+  return {
+    ...service,
+    tableId: resources.tables.documents,
+    bucketId: resources.buckets.documentsBucket,
+    storage: new Storage(service.client),
+  };
 }
 
 export async function getDocumentAssets() {
@@ -41,7 +48,7 @@ export async function getDocumentAssets() {
 }
 
 export async function storeIssuedDocument(snapshot: DocumentSnapshot, html: string, issuedBy: string) {
-  const config = getDocumentsConfig();
+  const config = await getDocumentsConfig();
   if (!config) throw new Error("Document storage is not configured.");
   const eventKey = getEventKey(snapshot.documentType, snapshot.sourceId, snapshot.reissuedFrom);
   const duplicates = await config.tablesDB.listRows({ databaseId: config.databaseId, tableId: config.tableId, queries: [Query.equal("eventKey", eventKey), Query.limit(1)] });
@@ -88,11 +95,10 @@ export async function storeIssuedDocument(snapshot: DocumentSnapshot, html: stri
   }
 }
 
-export async function writeAuditLog(config: NonNullable<ReturnType<typeof getDocumentsConfig>>, actorId: string, action: string, resourceId: string, details: Record<string, unknown>, resourceType = "document") {
-  const auditTable = process.env.APPWRITE_AUDIT_LOGS_TABLE_ID;
-  if (!auditTable) return;
+export async function writeAuditLog(config: { tablesDB: NonNullable<ReturnType<typeof createPrivilegedAppwriteClient>>["tablesDB"]; databaseId: string }, actorId: string, action: string, resourceId: string, details: Record<string, unknown>, resourceType = "document") {
   try {
-    await config.tablesDB.createRow({ databaseId: config.databaseId, tableId: auditTable, rowId: ID.unique(), data: { actorId, action, resourceType, resourceId, details: JSON.stringify(details), ipHash: null, occurredAt: new Date().toISOString() } });
+    const { tables } = await getAppwriteResources();
+    await config.tablesDB.createRow({ databaseId: config.databaseId, tableId: tables.auditLogs, rowId: ID.unique(), data: { actorId, action, resourceType, resourceId, details: JSON.stringify(details), ipHash: null, occurredAt: new Date().toISOString() } });
   } catch { /* document action remains authoritative; monitor missing audit rows */ }
 }
 
@@ -101,8 +107,9 @@ export function documentTypeLabel(type: DocumentType) {
 }
 
 export async function autoIssueOfferLetterForApplication(applicationId: string) {
-  const config = getDocumentsConfig();
+  const config = await getDocumentsConfig();
   if (!config) throw new Error("Document storage is not configured.");
+  const { tables } = await getAppwriteResources();
 
   const eventKey = getEventKey("offer", applicationId);
   const existing = await config.tablesDB.listRows({
@@ -114,42 +121,51 @@ export async function autoIssueOfferLetterForApplication(applicationId: string) 
     return { row: existing.rows[0], alreadyIssued: true };
   }
 
-  const documentId = generateDocumentId("offer");
-  const snapshot = await prepareDocument("offer", applicationId, documentId);
-  const assets = await getDocumentAssets();
-  const html = await renderDocumentHtml(snapshot, assets);
-  const row = await storeIssuedDocument(snapshot, html, "system-auto-enrollment");
-
-  const applicationsTable = process.env.APPWRITE_APPLICATIONS_TABLE_ID;
-  if (applicationsTable) {
-    try {
-      await config.tablesDB.updateRow({
-        databaseId: config.databaseId,
-        tableId: applicationsTable,
-        rowId: applicationId,
-        data: {
-          offerStatus: "sent",
-          offerSentAt: new Date().toISOString(),
-          offerSentBy: "system",
-        },
-      });
-    } catch (err) {
-      console.error("[auto-offer] Could not update application offerStatus:", err);
+  let row: Record<string, unknown>;
+  if (isDocumentFunctionConfigured()) {
+    const fnResult = await invokeDocumentFunction<{ documentId: string; record?: Record<string, unknown>; alreadyIssued?: boolean }>({
+      documentType: "offer",
+      applicationId,
+      issuedBy: "system-auto-enrollment",
+    });
+    if (fnResult.alreadyIssued && fnResult.record) {
+      return { row: fnResult.record, alreadyIssued: true };
     }
+    row = fnResult.record ?? { $id: fnResult.documentId };
+  } else {
+    const documentId = generateDocumentId("offer");
+    const snapshot = await prepareDocument("offer", applicationId, documentId);
+    const assets = await getDocumentAssets();
+    const html = await renderDocumentHtml(snapshot, assets);
+    row = await storeIssuedDocument(snapshot, html, "system-auto-enrollment");
+  }
+
+  try {
+    await config.tablesDB.updateRow({
+      databaseId: config.databaseId,
+      tableId: tables.applications,
+      rowId: applicationId,
+      data: {
+        offerStatus: "sent",
+        offerSentAt: new Date().toISOString(),
+        offerSentBy: "system",
+      },
+    });
+  } catch (err) {
+    console.error("[auto-offer] Could not update application offerStatus:", err);
   }
 
   return { row, alreadyIssued: false };
 }
 
 export async function autoIssueCompletionCertificatesForApprovedSubmission(submissionId: string, issuedBy: string) {
-  const config = getDocumentsConfig();
+  const config = await getDocumentsConfig();
   if (!config) throw new Error("Document storage is not configured.");
-  const submissionsTable = process.env.APPWRITE_SUBMISSIONS_TABLE_ID;
-  if (!submissionsTable) throw new Error("Submissions table is not configured.");
+  const { tables } = await getAppwriteResources();
 
   const submission = await config.tablesDB.getRow({
     databaseId: config.databaseId,
-    tableId: submissionsTable,
+    tableId: tables.submissions,
     rowId: submissionId,
   }) as Record<string, unknown>;
 
@@ -166,6 +182,13 @@ export async function autoIssueCompletionCertificatesForApprovedSubmission(submi
   });
   if (existingInternship.rows[0]) {
     internshipDocId = existingInternship.rows[0].$id;
+  } else if (isDocumentFunctionConfigured()) {
+    const fnResult = await invokeDocumentFunction<{ documentId: string }>({
+      documentType: "internship_completion",
+      enrollmentId,
+      issuedBy,
+    });
+    internshipDocId = fnResult.documentId;
   } else {
     const docId = generateDocumentId("internship_completion");
     const snapshot = await prepareDocument("internship_completion", enrollmentId, docId);
@@ -184,6 +207,13 @@ export async function autoIssueCompletionCertificatesForApprovedSubmission(submi
   });
   if (existingProject.rows[0]) {
     projectDocId = existingProject.rows[0].$id;
+  } else if (isDocumentFunctionConfigured()) {
+    const fnResult = await invokeDocumentFunction<{ documentId: string }>({
+      documentType: "project_completion",
+      submissionId,
+      issuedBy,
+    });
+    projectDocId = fnResult.documentId;
   } else {
     const docId = generateDocumentId("project_completion");
     const snapshot = await prepareDocument("project_completion", submissionId, docId);

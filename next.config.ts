@@ -64,6 +64,14 @@ const nextConfig: NextConfig = {
       "./node_modules/@fontsource/inter/files/inter-latin-{400,700}-normal.woff2",
       "./node_modules/@fontsource/poppins/files/poppins-latin-{600,700}-normal.woff2",
     ],
+    "/api/applications": [
+      "./node_modules/@fontsource/inter/files/inter-latin-{400,700}-normal.woff2",
+      "./node_modules/@fontsource/poppins/files/poppins-latin-{600,700}-normal.woff2",
+    ],
+    "/api/admin/submissions/**": [
+      "./node_modules/@fontsource/inter/files/inter-latin-{400,700}-normal.woff2",
+      "./node_modules/@fontsource/poppins/files/poppins-latin-{600,700}-normal.woff2",
+    ],
   },
   async headers() {
     return [

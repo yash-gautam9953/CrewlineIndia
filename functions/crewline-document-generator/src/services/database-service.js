@@ -133,6 +133,16 @@ export class DatabaseService {
     return res.rows[0] || null;
   }
 
+  async getTaskAssignment(taskId, studentId) {
+    if (!this.tables.taskAssignments) return null;
+    const res = await this.listRows(this.tables.taskAssignments, [
+      Query.equal("taskId", taskId),
+      Query.equal("studentId", studentId),
+      Query.limit(1),
+    ]);
+    return res.rows[0] || null;
+  }
+
   async getPaymentRecord(studentId, enrollmentId) {
     if (!this.tables.payments) return null;
     const res = await this.listRows(this.tables.payments, [

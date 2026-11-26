@@ -10,11 +10,11 @@ import {
   ExternalLink,
   GraduationCap,
   Globe,
-  Inbox,
   Layers3,
   LayoutDashboard,
   LogOut,
   Menu,
+  ScrollText,
   ShieldCheck,
   Users,
   X,
@@ -37,9 +37,14 @@ const navItems = [
     icon: Layers3,
   },
   {
-    href: "/admin/applications",
-    label: "Applications",
-    icon: Inbox,
+    href: "/admin/submissions",
+    label: "Project Reviews",
+    icon: ClipboardCheck,
+  },
+  {
+    href: "/admin/payments",
+    label: "Payment Verification",
+    icon: CreditCard,
   },
   {
     href: "/admin/enrollments",
@@ -47,24 +52,19 @@ const navItems = [
     icon: GraduationCap,
   },
   {
-    href: "/admin/submissions",
-    label: "Submissions & Reviews",
-    icon: ClipboardCheck,
-  },
-  {
     href: "/admin/documents",
     label: "Certificates & Docs",
     icon: Award,
   },
   {
-    href: "/admin/payments",
-    label: "Payments",
-    icon: CreditCard,
-  },
-  {
     href: "/admin/students",
     label: "Students Directory",
     icon: Users,
+  },
+  {
+    href: "/admin/audit-logs",
+    label: "Audit Logs",
+    icon: ScrollText,
   },
 ];
 

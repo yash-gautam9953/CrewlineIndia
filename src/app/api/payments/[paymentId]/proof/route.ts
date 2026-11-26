@@ -3,6 +3,7 @@ import { Storage } from "node-appwrite";
 import { getAdminUser } from "@/lib/authz";
 import { getSessionUser } from "@/lib/appwrite/session";
 import { createPrivilegedAppwriteClient } from "@/lib/appwrite/server";
+import { getAppwriteResources } from "@/lib/appwrite/resources";
 
 export const runtime = "nodejs";
 
@@ -10,9 +11,10 @@ export async function GET(_request: Request, { params }: { params: Promise<{ pay
   const session = await getSessionUser();
   if (!session) return NextResponse.json({ error: "Sign in to access the payment proof." }, { status: 401 });
   const service = createPrivilegedAppwriteClient();
-  const tableId = process.env.APPWRITE_PAYMENTS_TABLE_ID;
-  const bucketId = process.env.APPWRITE_SUBMISSIONS_BUCKET_ID;
-  if (!service || !tableId || !bucketId) return NextResponse.json({ error: "Payment storage is not configured." }, { status: 503 });
+  const resources = service ? await getAppwriteResources().catch(() => null) : null;
+  if (!service || !resources) return NextResponse.json({ error: "Payment storage is not configured." }, { status: 503 });
+  const tableId = resources.tables.payments;
+  const bucketId = resources.buckets.submissionsBucket;
   const { paymentId } = await params;
   try {
     const payment = await service.tablesDB.getRow({ databaseId: service.databaseId, tableId, rowId: paymentId }) as Record<string, unknown>;

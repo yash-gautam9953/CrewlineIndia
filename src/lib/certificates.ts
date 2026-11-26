@@ -1,6 +1,7 @@
 import "server-only";
 import { Query } from "node-appwrite";
 import { createPrivilegedAppwriteClient } from "@/lib/appwrite/server";
+import { getAppwriteResources } from "@/lib/appwrite/resources";
 
 export type PublicCertificateResult =
   | { status: "valid"; certificate: { certificateId: string; certificateType: string; studentName: string; internshipTitle: string; duration: string; issueDate: string; issuer: string } }
@@ -9,11 +10,12 @@ export type PublicCertificateResult =
 
 export async function verifyPublicCertificate(certificateId: string): Promise<PublicCertificateResult> {
   const service = createPrivilegedAppwriteClient();
-  const tableId = process.env.APPWRITE_CERTIFICATES_TABLE_ID;
-  if (!service || !tableId) return { status: "unavailable" };
+  if (!service) return { status: "unavailable" };
 
   try {
-    const documentsTable = process.env.APPWRITE_DOCUMENTS_TABLE_ID;
+    const { tables } = await getAppwriteResources();
+    const tableId = tables.certificates;
+    const documentsTable = tables.documents;
     if (documentsTable) {
       try {
         const issued = await service.tablesDB.getRow({ databaseId: service.databaseId, tableId: documentsTable, rowId: certificateId }) as Record<string, unknown>;

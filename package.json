@@ -7,7 +7,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "test": "node --conditions=react-server --import tsx --test tests/documents.test.ts tests/workflow.test.ts tests/enrollment-workflow.test.ts",
+    "test": "node --conditions=react-server --import tsx --test tests/documents.test.ts tests/workflow.test.ts tests/enrollment-workflow.test.ts tests/hardening-and-automation.test.ts tests/resource-resolver.test.ts",
     "setup:appwrite": "node scripts/setup-appwrite.mjs",
     "seed:test-internships": "node scripts/seed-test-internships.mjs"
   },

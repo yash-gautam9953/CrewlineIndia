@@ -4,7 +4,9 @@ import { InputFile } from "node-appwrite/file";
 import { z } from "zod";
 import { getSessionUser } from "@/lib/appwrite/session";
 import { createPrivilegedAppwriteClient } from "@/lib/appwrite/server";
-import { isRateLimited } from "@/lib/rate-limit";
+import { AppwriteResourceError, getAppwriteResources } from "@/lib/appwrite/resources";
+import { checkRateLimit } from "@/lib/rate-limit";
+import { isTrustedOrigin } from "@/lib/security";
 import { studentCanAccessTask } from "@/lib/task-access";
 
 const httpsUrl = z.union([z.literal(""), z.url({ protocol: /^https$/ }).max(2048)]);
@@ -49,9 +51,11 @@ function hasValidSignature(file: File, bytes: Buffer) {
 export const runtime = "nodejs";
 
 export async function POST(request: Request) {
-  if (isRateLimited(request, "task-submit", 15)) return NextResponse.json({ error: "Too many submissions. Wait a minute and try again." }, { status: 429 });
+  if (!isTrustedOrigin(request)) return NextResponse.json({ error: "Untrusted request origin." }, { status: 403 });
+  if ((await checkRateLimit(request, "task-submit", 15)).limited) return NextResponse.json({ error: "Too many submissions. Wait a minute and try again." }, { status: 429 });
   const session = await getSessionUser();
   if (!session) return NextResponse.json({ error: "Please sign in to submit your work." }, { status: 401 });
+  if (!session.user.emailVerification) return NextResponse.json({ error: "Verify your email address before submitting project work." }, { status: 403 });
   const { values, files } = await projectFiles(request);
   const input = schema.safeParse(values);
   if (!input.success) {
@@ -66,13 +70,24 @@ export async function POST(request: Request) {
   if (files.some((file, index) => !hasValidSignature(file, fileBuffers[index]))) return NextResponse.json({ error: "One or more uploaded files do not match their file extension." }, { status: 400 });
 
   const service = createPrivilegedAppwriteClient();
-  const tasksTable = process.env.APPWRITE_TASKS_TABLE_ID;
-  const submissionsTable = process.env.APPWRITE_SUBMISSIONS_TABLE_ID;
-  const enrollmentTable = process.env.APPWRITE_ENROLLMENTS_TABLE_ID;
-  const internshipTable = process.env.APPWRITE_INTERNSHIPS_TABLE_ID;
-  const profilesTable = process.env.APPWRITE_STUDENT_PROFILES_TABLE_ID;
-  const bucketId = process.env.APPWRITE_SUBMISSIONS_BUCKET_ID;
-  if (!service || !tasksTable || !submissionsTable || !enrollmentTable || !internshipTable || !profilesTable || (files.length && !bucketId)) return NextResponse.json({ error: "Submission service or private file storage is not configured." }, { status: 503 });
+  if (!service) return NextResponse.json({ error: "Submission service or private file storage is not configured." }, { status: 503 });
+  let resources;
+  try {
+    resources = await getAppwriteResources();
+  } catch (error) {
+    if (error instanceof AppwriteResourceError) {
+      console.error("[submissions] Appwrite resource resolution failed:", error.message);
+    }
+    return NextResponse.json({ error: "Submission service or private file storage is not configured." }, { status: 503 });
+  }
+  const {
+    tasks: tasksTable,
+    submissions: submissionsTable,
+    enrollments: enrollmentTable,
+    internships: internshipTable,
+    studentProfiles: profilesTable,
+  } = resources.tables;
+  const bucketId = resources.buckets.submissionsBucket;
   const uploadedIds: string[] = [];
   try {
     const task = await service.tablesDB.getRow({ databaseId: service.databaseId, tableId: tasksTable, rowId: input.data.taskId }) as Record<string, unknown> & { $id: string };

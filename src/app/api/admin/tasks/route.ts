@@ -4,7 +4,9 @@ import { InputFile } from "node-appwrite/file";
 import { z } from "zod";
 import { getAdminUser } from "@/lib/authz";
 import { createPrivilegedAppwriteClient } from "@/lib/appwrite/server";
-import { isRateLimited } from "@/lib/rate-limit";
+import { getAppwriteResources } from "@/lib/appwrite/resources";
+import { checkRateLimit } from "@/lib/rate-limit";
+import { isTrustedOrigin } from "@/lib/security";
 
 const schema = z.object({
   internshipId: z.string().min(1).max(64),
@@ -19,7 +21,8 @@ const schema = z.object({
 export const runtime = "nodejs";
 
 export async function POST(request: Request) {
-  if (isRateLimited(request, "admin-task-create", 30)) return NextResponse.json({ error: "Too many task changes. Try again shortly." }, { status: 429 });
+  if (!isTrustedOrigin(request)) return NextResponse.json({ error: "Untrusted request origin." }, { status: 403 });
+  if ((await checkRateLimit(request, "admin-task-create", 30)).limited) return NextResponse.json({ error: "Too many task changes. Try again shortly." }, { status: 429 });
   const admin = await getAdminUser();
   if (!admin) return NextResponse.json({ error: "Administrator access required." }, { status: 403 });
   const form = await request.formData();
@@ -42,16 +45,14 @@ export async function POST(request: Request) {
   }
 
   const service = createPrivilegedAppwriteClient();
-  const taskTable = process.env.APPWRITE_TASKS_TABLE_ID;
-  const internshipsTable = process.env.APPWRITE_INTERNSHIPS_TABLE_ID;
-  const enrollmentsTable = process.env.APPWRITE_ENROLLMENTS_TABLE_ID;
-  const assignmentsTable = process.env.APPWRITE_TASK_ASSIGNMENTS_TABLE_ID;
-  const resourcesTable = process.env.APPWRITE_TASK_RESOURCES_TABLE_ID;
-  const bucketId = process.env.APPWRITE_SUBMISSIONS_BUCKET_ID;
-  if (!service || !taskTable || !internshipsTable || !enrollmentsTable) return NextResponse.json({ error: "Task service is not configured." }, { status: 503 });
-  if (input.data.assignmentMode === "selected_students" && !assignmentsTable) return NextResponse.json({ error: "Task assignment table is missing. Run the Appwrite setup script." }, { status: 503 });
-  if (resource && !bucketId) return NextResponse.json({ error: "Student submission storage is not configured." }, { status: 503 });
-  if (resource && !resourcesTable) return NextResponse.json({ error: "Task resource history table is missing. Run the Appwrite setup script." }, { status: 503 });
+  const resources = service ? await getAppwriteResources().catch(() => null) : null;
+  if (!service || !resources) return NextResponse.json({ error: "Task service is not configured." }, { status: 503 });
+  const taskTable = resources.tables.tasks;
+  const internshipsTable = resources.tables.internships;
+  const enrollmentsTable = resources.tables.enrollments;
+  const assignmentsTable = resources.tables.taskAssignments;
+  const resourcesTable = resources.tables.taskResources;
+  const bucketId = resources.buckets.submissionsBucket;
 
   let taskId = "";
   let resourceFileId = "";

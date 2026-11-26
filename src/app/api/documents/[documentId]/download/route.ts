@@ -3,6 +3,7 @@ import { Storage } from "node-appwrite";
 import { getAdminUser } from "@/lib/authz";
 import { getSessionUser } from "@/lib/appwrite/session";
 import { createPrivilegedAppwriteClient } from "@/lib/appwrite/server";
+import { getAppwriteResources } from "@/lib/appwrite/resources";
 
 export const runtime = "nodejs";
 
@@ -10,9 +11,10 @@ export async function GET(_request: Request, { params }: { params: Promise<{ doc
   const session = await getSessionUser();
   if (!session) return NextResponse.json({ error: "Sign in to access your documents." }, { status: 401 });
   const config = createPrivilegedAppwriteClient();
-  const tableId = process.env.APPWRITE_DOCUMENTS_TABLE_ID;
-  const bucketId = process.env.APPWRITE_DOCUMENTS_BUCKET_ID;
-  if (!config || !tableId || !bucketId) return NextResponse.json({ error: "Document storage is not configured." }, { status: 503 });
+  const resources = config ? await getAppwriteResources().catch(() => null) : null;
+  if (!config || !resources) return NextResponse.json({ error: "Document storage is not configured." }, { status: 503 });
+  const tableId = resources.tables.documents;
+  const bucketId = resources.buckets.documentsBucket;
   const { documentId } = await params;
   try {
     const document = await config.tablesDB.getRow({ databaseId: config.databaseId, tableId, rowId: documentId }) as Record<string, unknown>;

@@ -7,6 +7,7 @@ import { getDocumentAssets, storeIssuedDocument } from "@/lib/documents/document
 import { renderDocumentHtml } from "@/lib/documents/templates";
 import { verifyPreview } from "@/lib/documents/preview-token";
 import { createPrivilegedAppwriteClient } from "@/lib/appwrite/server";
+import { getAppwriteResources } from "@/lib/appwrite/resources";
 
 const schema = z.object({ token: z.string().min(20).max(12000) });
 export const runtime = "nodejs";
@@ -22,8 +23,9 @@ export async function POST(request: Request) {
     const options = { offerDetails: claims.snapshot.documentType === "offer" ? { startDate: claims.snapshot.startDate.slice(0, 10), duration: claims.snapshot.duration, workMode: claims.snapshot.workMode, stipend: claims.snapshot.stipend, terms: claims.snapshot.terms } : undefined, reissueFromId: claims.snapshot.reissuedFrom || undefined, reissueReason: claims.snapshot.reissueReason || undefined };
     if (claims.snapshot.reissuedFrom) {
       const config = createPrivilegedAppwriteClient();
-      const docsTable = process.env.APPWRITE_DOCUMENTS_TABLE_ID;
-      if (!config || !docsTable) throw new Error("Document storage is not configured.");
+      const resources = config ? await getAppwriteResources().catch(() => null) : null;
+      if (!config || !resources) throw new Error("Document storage is not configured.");
+      const docsTable = resources.tables.documents;
       const prior = await config.tablesDB.getRow({ databaseId: config.databaseId, tableId: docsTable, rowId: claims.snapshot.reissuedFrom }) as Record<string, unknown>;
       if (prior.documentType !== claims.snapshot.documentType || prior.sourceId !== claims.snapshot.sourceId) throw new Error("The source document changed after preview.");
       if (claims.snapshot.documentType !== "offer" && prior.status !== "revoked") throw new Error("Revoke the previous certificate before issuing the correction.");

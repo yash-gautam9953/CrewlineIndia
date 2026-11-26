@@ -1,17 +1,19 @@
 import "server-only";
 import { Query } from "node-appwrite";
 import { createPrivilegedAppwriteClient } from "@/lib/appwrite/server";
+import { getAppwriteResources } from "@/lib/appwrite/resources";
 
 export async function getStudentData(userId: string) {
   const service = createPrivilegedAppwriteClient();
-  const profileTable = process.env.APPWRITE_STUDENT_PROFILES_TABLE_ID;
-  const applicationTable = process.env.APPWRITE_APPLICATIONS_TABLE_ID;
-  const internshipTable = process.env.APPWRITE_INTERNSHIPS_TABLE_ID;
-  const enrollmentTable = process.env.APPWRITE_ENROLLMENTS_TABLE_ID;
-  const taskTable = process.env.APPWRITE_TASKS_TABLE_ID;
-  const submissionTable = process.env.APPWRITE_SUBMISSIONS_TABLE_ID;
-  const taskAssignmentsTable = process.env.APPWRITE_TASK_ASSIGNMENTS_TABLE_ID;
-  if (!service || !profileTable || !applicationTable || !internshipTable) throw new Error("Student data storage is not configured.");
+  if (!service) throw new Error("Student data storage is not configured.");
+  const { tables } = await getAppwriteResources();
+  const profileTable = tables.studentProfiles;
+  const applicationTable = tables.applications;
+  const internshipTable = tables.internships;
+  const enrollmentTable = tables.enrollments;
+  const taskTable = tables.tasks;
+  const submissionTable = tables.submissions;
+  const taskAssignmentsTable = tables.taskAssignments;
 
   const [profiles, applications, enrollmentRows] = await Promise.all([
     service.tablesDB.listRows({ databaseId: service.databaseId, tableId: profileTable, queries: [Query.equal("authUserId", userId), Query.limit(1)] }),
@@ -32,9 +34,9 @@ export async function getStudentData(userId: string) {
   const selectedTaskIds = taskAssignmentsTable && allTasks.length ? new Set((await service.tablesDB.listRows({ databaseId: service.databaseId, tableId: taskAssignmentsTable, queries: [Query.equal("studentId", userId), Query.equal("taskId", allTasks.map((task) => task.$id)), Query.limit(100)] })).rows.map((row) => String(row.taskId))) : new Set<string>();
   const tasks = allTasks.filter((task) => (task as typeof task & Record<string, unknown>).assignmentMode !== "selected_students" || selectedTaskIds.has(task.$id));
   const submissions = submissionTable ? (await service.tablesDB.listRows({ databaseId: service.databaseId, tableId: submissionTable, queries: [Query.equal("studentId", userId), Query.orderDesc("$createdAt"), Query.limit(100)] })).rows : [];
-  const reviewsTable = process.env.APPWRITE_REVIEWS_TABLE_ID;
+  const reviewsTable = tables.reviews;
   const reviews = reviewsTable && submissions.length ? (await service.tablesDB.listRows({ databaseId: service.databaseId, tableId: reviewsTable, queries: [Query.equal("submissionId", submissions.map((row) => row.$id)), Query.orderDesc("reviewedAt"), Query.limit(100)] })).rows : [];
-  const paymentsTable = process.env.APPWRITE_PAYMENTS_TABLE_ID;
+  const paymentsTable = tables.payments;
   const payments = paymentsTable && enrollments.length ? (await service.tablesDB.listRows({ databaseId: service.databaseId, tableId: paymentsTable, queries: [Query.equal("studentId", userId), Query.limit(100)] })).rows : [];
   const latestSubmissionByTask = new Map<string, (typeof submissions)[number]>();
   const submissionHistoryByTask = new Map<string, (typeof submissions)[number][]>();

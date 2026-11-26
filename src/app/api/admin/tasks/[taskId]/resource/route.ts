@@ -3,12 +3,15 @@ import { ID, Permission, Query, Role, Storage } from "node-appwrite";
 import { InputFile } from "node-appwrite/file";
 import { getAdminUser } from "@/lib/authz";
 import { createPrivilegedAppwriteClient } from "@/lib/appwrite/server";
-import { isRateLimited } from "@/lib/rate-limit";
+import { getAppwriteResources } from "@/lib/appwrite/resources";
+import { checkRateLimit } from "@/lib/rate-limit";
+import { isTrustedOrigin } from "@/lib/security";
 
 export const runtime = "nodejs";
 
 export async function POST(request: Request, { params }: { params: Promise<{ taskId: string }> }) {
-  if (isRateLimited(request, "task-resource-replace", 15)) return NextResponse.json({ error: "Too many task resource updates." }, { status: 429 });
+  if (!isTrustedOrigin(request)) return NextResponse.json({ error: "Untrusted request origin." }, { status: 403 });
+  if ((await checkRateLimit(request, "task-resource-replace", 15)).limited) return NextResponse.json({ error: "Too many task resource updates." }, { status: 429 });
   const admin = await getAdminUser();
   if (!admin) return NextResponse.json({ error: "Administrator access required." }, { status: 403 });
   const form = await request.formData();
@@ -17,10 +20,11 @@ export async function POST(request: Request, { params }: { params: Promise<{ tas
   const bytes = Buffer.from(await file.arrayBuffer());
   if (bytes.subarray(0, 5).toString() !== "%PDF-") return NextResponse.json({ error: "The selected task resource is not a valid PDF." }, { status: 400 });
   const service = createPrivilegedAppwriteClient();
-  const tasksTable = process.env.APPWRITE_TASKS_TABLE_ID;
-  const historyTable = process.env.APPWRITE_TASK_RESOURCES_TABLE_ID;
-  const bucketId = process.env.APPWRITE_SUBMISSIONS_BUCKET_ID;
-  if (!service || !tasksTable || !historyTable || !bucketId) return NextResponse.json({ error: "Task resource storage is not configured." }, { status: 503 });
+  const resources = service ? await getAppwriteResources().catch(() => null) : null;
+  if (!service || !resources) return NextResponse.json({ error: "Task resource storage is not configured." }, { status: 503 });
+  const tasksTable = resources.tables.tasks;
+  const historyTable = resources.tables.taskResources;
+  const bucketId = resources.buckets.submissionsBucket;
   const { taskId } = await params;
   let fileId = "";
   let historyRowId = "";

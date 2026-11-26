@@ -2,8 +2,10 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { getSessionUser } from "@/lib/appwrite/session";
 import { createPrivilegedAppwriteClient } from "@/lib/appwrite/server";
+import { getAppwriteResources } from "@/lib/appwrite/resources";
 import { ensureStudentProfile } from "@/lib/student-profile";
-import { isRateLimited } from "@/lib/rate-limit";
+import { checkRateLimit } from "@/lib/rate-limit";
+import { isTrustedOrigin } from "@/lib/security";
 
 const profileSchema = z.object({
   fullName: z.string().trim().min(2).max(160),
@@ -15,7 +17,8 @@ const profileSchema = z.object({
 });
 
 export async function PATCH(request: Request) {
-  if (isRateLimited(request, "profile-update", 10)) return NextResponse.json({ error: "Too many changes. Please wait a minute and try again." }, { status: 429 });
+  if (!isTrustedOrigin(request)) return NextResponse.json({ error: "Untrusted request origin." }, { status: 403 });
+  if ((await checkRateLimit(request, "profile-update", 10)).limited) return NextResponse.json({ error: "Too many changes. Please wait a minute and try again." }, { status: 429 });
   const session = await getSessionUser();
   if (!session) return NextResponse.json({ error: "Please sign in to update your profile." }, { status: 401 });
   const parsed = profileSchema.safeParse(await request.json().catch(() => null));
@@ -25,8 +28,9 @@ export async function PATCH(request: Request) {
     return NextResponse.json({ error: "Check your profile details and try again.", details: fieldErrors }, { status: 400 });
   }
   const service = createPrivilegedAppwriteClient();
-  const tableId = process.env.APPWRITE_STUDENT_PROFILES_TABLE_ID;
-  if (!service || !tableId) return NextResponse.json({ error: "Profile storage is not configured." }, { status: 503 });
+  const resources = service ? await getAppwriteResources().catch(() => null) : null;
+  if (!service || !resources) return NextResponse.json({ error: "Profile storage is not configured." }, { status: 503 });
+  const tableId = resources.tables.studentProfiles;
   try {
     const profile = await ensureStudentProfile(session.user);
     const data = {

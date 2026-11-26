@@ -1,6 +1,7 @@
 import "server-only";
 import { Query } from "node-appwrite";
 import { createPrivilegedAppwriteClient } from "@/lib/appwrite/server";
+import { getAppwriteResources } from "@/lib/appwrite/resources";
 import type { DocumentType } from "./document-id-generator";
 import { calculateInternshipDates, type InternshipDuration } from "@/lib/internship-dates";
 
@@ -35,8 +36,9 @@ export type DocumentPreparationOptions = { offerDetails?: { startDate?: string; 
 
 export async function readSignatorySettings() {
   const service = createPrivilegedAppwriteClient();
-  const tableId = process.env.APPWRITE_WEBSITE_CONTENT_TABLE_ID;
-  if (!service || !tableId) throw new Error("Signatory settings storage is not configured.");
+  if (!service) throw new Error("Signatory settings storage is not configured.");
+  const { tables } = await getAppwriteResources();
+  const tableId = tables.websiteContent;
   const result = await service.tablesDB.listRows({ databaseId: service.databaseId, tableId, queries: [Query.equal("contentKey", "authorized-signatory"), Query.limit(1)] });
   const row = result.rows[0] as (typeof result.rows)[number] & Record<string, unknown> | undefined;
   if (!row || typeof row.content !== "string") throw new Error("Authorized signatory details have not been configured.");
@@ -52,14 +54,23 @@ export async function readSignatorySettings() {
   };
 }
 
+export function normalizeWorkMode(mode: string | undefined | null): string {
+  const raw = (mode || "Virtual / Remote").trim();
+  if (/^remote$/i.test(raw)) return "Virtual / Remote";
+  if (/^hybrid$/i.test(raw)) return "Hybrid";
+  if (/^onsite$/i.test(raw) || /^on-site$/i.test(raw)) return "On-site";
+  return raw || "Virtual / Remote";
+}
+
 export async function prepareDocument(type: DocumentType, sourceId: string, documentId: string, options: DocumentPreparationOptions = {}): Promise<DocumentSnapshot> {
   const service = createPrivilegedAppwriteClient();
-  const applicationsTable = process.env.APPWRITE_APPLICATIONS_TABLE_ID;
-  const internshipTable = process.env.APPWRITE_INTERNSHIPS_TABLE_ID;
-  const enrollmentsTable = process.env.APPWRITE_ENROLLMENTS_TABLE_ID;
-  const tasksTable = process.env.APPWRITE_TASKS_TABLE_ID;
-  const submissionsTable = process.env.APPWRITE_SUBMISSIONS_TABLE_ID;
   if (!service) throw new Error("Appwrite is not configured.");
+  const { tables } = await getAppwriteResources();
+  const applicationsTable = tables.applications;
+  const internshipTable = tables.internships;
+  const enrollmentsTable = tables.enrollments;
+  const tasksTable = tables.tasks;
+  const submissionsTable = tables.submissions;
   const signatory = await readSignatorySettings();
   const now = new Date().toISOString();
   const base = { documentType: type, documentId, issueDate: now, completionDate: now, workMode: "Remote", stipend: "", terms: "", projectTitle: "", startDate: "", endDate: "", sourceId, internshipId: "", signatoryName: signatory.name, signatoryDesignation: signatory.designation, signatorySignatureFileId: signatory.signatureFileId, templateVersion: "1.0", verificationUrl: "", reissuedFrom: options.reissueFromId ?? "", reissueReason: options.reissueReason ?? "" };
@@ -74,7 +85,7 @@ export async function prepareDocument(type: DocumentType, sourceId: string, docu
     const duration = offerDetails?.duration || String(application.offerDuration ?? "");
     const end = deriveEndDate(start, duration);
     if (!start || !end) throw new Error("The stored offer start date or duration cannot produce a valid end date. Correct the offer details before issuing the PDF.");
-    const snapshot = { ...base, studentId: String(application.studentId), studentName: await studentName(String(application.studentId)), documentTitle: String(internship.title), domain: String(internship.domain), duration, startDate: start, endDate: end, workMode: offerDetails?.workMode || String(application.offerMode ?? "Remote"), stipend: offerDetails?.stipend ?? String(application.offerStipend ?? ""), terms: offerDetails?.terms ?? String(application.offerNotes ?? ""), sourceId, internshipId: String(application.internshipId) };
+    const snapshot = { ...base, studentId: String(application.studentId), studentName: await studentName(String(application.studentId)), documentTitle: String(internship.title), domain: String(internship.domain), duration, startDate: start, endDate: end, workMode: normalizeWorkMode(offerDetails?.workMode || String(application.offerMode ?? "Virtual / Remote")), stipend: offerDetails?.stipend ?? String(application.offerStipend ?? ""), terms: offerDetails?.terms ?? String(application.offerNotes ?? ""), sourceId, internshipId: String(application.internshipId) };
     return snapshot;
   }
 
@@ -90,8 +101,7 @@ export async function prepareDocument(type: DocumentType, sourceId: string, docu
     for (const task of tasks.rows) {
       const taskData = task as typeof task & Record<string, unknown>;
       if (taskData.assignmentMode === "selected_students") {
-        const assignmentsTable = process.env.APPWRITE_TASK_ASSIGNMENTS_TABLE_ID;
-        if (!assignmentsTable) throw new Error("Selected-student task assignment data is not configured.");
+        const assignmentsTable = tables.taskAssignments;
         const assignment = await service.tablesDB.listRows({ databaseId: service.databaseId, tableId: assignmentsTable, queries: [Query.equal("taskId", task.$id), Query.equal("studentId", String(enrollment.studentId)), Query.limit(1)] });
         if (!assignment.total) continue;
       }
@@ -99,8 +109,10 @@ export async function prepareDocument(type: DocumentType, sourceId: string, docu
       if (!submissions.total) throw new Error("Every mandatory task must have an approved submission before the completion certificate can be issued.");
     }
     const title = String((internship as Record<string, unknown>).title ?? "Internship");
-    const snapshot = { ...base, studentId: String(enrollment.studentId), studentName: await studentName(String(enrollment.studentId)), documentTitle: title, domain: String((internship as Record<string, unknown>).domain ?? ""), duration: String((internship as Record<string, unknown>).duration ?? ""), startDate: String(enrollment.startedAt ?? ""), endDate: String(enrollment.completedAt ?? ""), completionDate: String(enrollment.completedAt ?? now), sourceId, internshipId: String(enrollment.internshipId) };
-    if (!snapshot.startDate || !snapshot.endDate) throw new Error("Enrollment start and completion dates must be recorded before certificate issuance.");
+    const duration = String(enrollment.selectedDuration || (internship as Record<string, unknown>).duration || "1 Month");
+    const scheduledEnd = String(enrollment.scheduledEndAt || enrollment.completedAt || "");
+    const snapshot = { ...base, studentId: String(enrollment.studentId), studentName: await studentName(String(enrollment.studentId)), documentTitle: title, domain: String((internship as Record<string, unknown>).domain ?? ""), duration, startDate: String(enrollment.startedAt ?? ""), endDate: scheduledEnd, completionDate: String(enrollment.completedAt ?? now), sourceId, internshipId: String(enrollment.internshipId) };
+    if (!snapshot.startDate || !snapshot.endDate) throw new Error("Enrollment start and scheduled end dates must be recorded before certificate issuance.");
     snapshot.verificationUrl = `https://crewline.me/verify/${encodeURIComponent(documentId)}`;
     return snapshot;
   }
@@ -114,7 +126,7 @@ export async function prepareDocument(type: DocumentType, sourceId: string, docu
   ]);
   await validatePaymentEligibility(String(submission.studentId), String(enrollment.$id));
   const internship = await service.tablesDB.getRow({ databaseId: service.databaseId, tableId: internshipTable, rowId: String(enrollment.internshipId) }) as Record<string, unknown>;
-  const reviewsTable = process.env.APPWRITE_REVIEWS_TABLE_ID;
+  const reviewsTable = tables.reviews;
   const approvalRows = reviewsTable ? await service.tablesDB.listRows({ databaseId: service.databaseId, tableId: reviewsTable, queries: [Query.equal("submissionId", sourceId), Query.equal("decision", "approved"), Query.orderDesc("reviewedAt"), Query.limit(1)] }) : { rows: [] };
   if (!approvalRows.rows.length) throw new Error("An approved mentor review must be recorded before the project certificate can be issued.");
   const projectTitle = String((task as Record<string, unknown>).title ?? "Project");
@@ -126,8 +138,9 @@ export async function prepareDocument(type: DocumentType, sourceId: string, docu
 
 async function studentName(userId: string) {
   const service = createPrivilegedAppwriteClient();
-  const tableId = process.env.APPWRITE_STUDENT_PROFILES_TABLE_ID;
-  if (!service || !tableId) throw new Error("Student profiles are not configured.");
+  if (!service) throw new Error("Student profiles are not configured.");
+  const { tables } = await getAppwriteResources();
+  const tableId = tables.studentProfiles;
   const rows = await service.tablesDB.listRows({ databaseId: service.databaseId, tableId, queries: [Query.equal("authUserId", userId), Query.limit(1)] });
   const name = rows.rows[0]?.fullName;
   if (typeof name !== "string" || !name.trim()) throw new Error("Student profile must have a verified full name before issuing this document.");
@@ -136,8 +149,9 @@ async function studentName(userId: string) {
 
 async function validatePaymentEligibility(studentId: string, enrollmentId: string) {
   const service = createPrivilegedAppwriteClient();
-  const paymentTable = process.env.APPWRITE_PAYMENTS_TABLE_ID;
-  if (!service || !paymentTable) return;
+  if (!service) return;
+  const { tables } = await getAppwriteResources();
+  const paymentTable = tables.payments;
   const payments = await service.tablesDB.listRows({ databaseId: service.databaseId, tableId: paymentTable, queries: [Query.equal("studentId", studentId), Query.equal("enrollmentId", enrollmentId), Query.limit(1)] });
   const status = payments.rows[0]?.status;
   if (status && !["not_applicable", "verified", "waived"].includes(String(status))) throw new Error("A disclosed payment requirement is still awaiting submission or verification.");

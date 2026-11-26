@@ -7,9 +7,7 @@ import {
   ArrowLeft,
   Award,
   Briefcase,
-  CheckSquare,
   Compass,
-  CreditCard,
   GraduationCap,
   Home,
   LayoutDashboard,
@@ -39,22 +37,10 @@ const mainNavItems = [
     hash: "#internships",
   },
   {
-    href: "/account#tasks",
-    label: "Projects & Tasks",
-    icon: CheckSquare,
-    hash: "#tasks",
-  },
-  {
     href: "/account#documents",
     label: "My Documents",
     icon: Award,
     hash: "#documents",
-  },
-  {
-    href: "/account#payments",
-    label: "Fee & Payments",
-    icon: CreditCard,
-    hash: "#payments",
   },
   {
     href: "/account#profile",

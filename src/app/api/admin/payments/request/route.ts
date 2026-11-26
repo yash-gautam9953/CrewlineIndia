@@ -3,6 +3,7 @@ import { ID, Permission, Query, Role } from "node-appwrite";
 import { z } from "zod";
 import { getAdminUser } from "@/lib/authz";
 import { createPrivilegedAppwriteClient } from "@/lib/appwrite/server";
+import { getAppwriteResources } from "@/lib/appwrite/resources";
 import { isRateLimited } from "@/lib/rate-limit";
 
 const schema = z.object({ enrollmentId: z.string().min(1).max(64), amountDue: z.coerce.number().int().positive().max(100000000), instructions: z.string().trim().min(10).max(2000) });
@@ -14,9 +15,10 @@ export async function POST(request: Request) {
   const input = schema.safeParse(await request.json().catch(() => null));
   if (!input.success) return NextResponse.json({ error: "Enter an enrollment, disclosed amount, and payment instructions." }, { status: 400 });
   const service = createPrivilegedAppwriteClient();
-  const enrollmentTable = process.env.APPWRITE_ENROLLMENTS_TABLE_ID;
-  const paymentTable = process.env.APPWRITE_PAYMENTS_TABLE_ID;
-  if (!service || !enrollmentTable || !paymentTable) return NextResponse.json({ error: "Payment service is not configured." }, { status: 503 });
+  const resources = service ? await getAppwriteResources().catch(() => null) : null;
+  if (!service || !resources) return NextResponse.json({ error: "Payment service is not configured." }, { status: 503 });
+  const enrollmentTable = resources.tables.enrollments;
+  const paymentTable = resources.tables.payments;
   try {
     const enrollment = await service.tablesDB.getRow({ databaseId: service.databaseId, tableId: enrollmentTable, rowId: input.data.enrollmentId });
     if (!["active", "completed"].includes(String(enrollment.status))) return NextResponse.json({ error: "Only active or completed enrollments can have a payment request." }, { status: 409 });

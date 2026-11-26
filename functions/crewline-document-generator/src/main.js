@@ -47,6 +47,26 @@ const documentGeneratorFunction = async ({ req, res, log, error }) => {
     });
   }
 
+  // Render preview PDF from server-generated HTML (for trusted Next.js admin preview)
+  if (payload.action === "render_pdf" && typeof payload.html === "string") {
+    if (!apiKey) {
+      return res.json({ success: false, error: "Unauthorized: Appwrite execution key is required." }, 401);
+    }
+    try {
+      const { generatePdfFromHtml } = await import("./services/pdf-service.js");
+      const pdfBuffer = await generatePdfFromHtml(payload.html, {
+        landscape: Boolean(payload.landscape),
+      });
+      return res.json({
+        success: true,
+        pdfBase64: pdfBuffer.toString("base64"),
+      }, 200);
+    } catch (pdfErr) {
+      error(`[crewline-doc-engine] Preview PDF rendering failed: ${pdfErr.message}`);
+      return res.json({ success: false, error: pdfErr.message }, 400);
+    }
+  }
+
   // HTML Preview mode (for admin preview without persistent storage)
   if (payload.action === "preview" && payload.documentType && payload.data) {
     try {
@@ -71,6 +91,26 @@ const documentGeneratorFunction = async ({ req, res, log, error }) => {
         error: "Missing required field 'documentType'. Expected: 'offer' | 'internship_completion' | 'project_completion'",
       },
       400
+    );
+  }
+
+  if (!["offer", "internship_completion", "project_completion"].includes(documentType)) {
+    return res.json(
+      {
+        success: false,
+        error: `Unsupported documentType '${documentType}'. Expected: 'offer', 'internship_completion', 'project_completion'`,
+      },
+      400
+    );
+  }
+
+  if (!apiKey) {
+    return res.json(
+      {
+        success: false,
+        error: "Unauthorized: Appwrite execution key is required.",
+      },
+      401
     );
   }
 

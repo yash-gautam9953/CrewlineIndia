@@ -1,7 +1,7 @@
 import "server-only";
 import { Query } from "node-appwrite";
 import { createPrivilegedAppwriteClient } from "@/lib/appwrite/server";
-import { appwriteConfig } from "@/lib/appwrite/config";
+import { getAppwriteResources } from "@/lib/appwrite/resources";
 
 export type Internship = {
   id: string;
@@ -21,10 +21,11 @@ export type InternshipResult =
 
 export async function getPublishedInternships(limit = 6): Promise<InternshipResult> {
   const service = createPrivilegedAppwriteClient();
-  const tableId = appwriteConfig.internshipsTableId;
-  if (!service || !tableId) return { status: "not-configured", internships: [] };
+  if (!service) return { status: "not-configured", internships: [] };
 
   try {
+    const { tables } = await getAppwriteResources();
+    const tableId = tables.internships;
     const response = await service.tablesDB.listRows({
       databaseId: service.databaseId,
       tableId,

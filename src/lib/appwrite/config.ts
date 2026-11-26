@@ -1,12 +1,15 @@
 import "server-only";
+import { resolveAppwriteEndpoint, resolveAppwriteProjectId } from "./project";
 
-export const appwriteConfig = {
-  endpoint: process.env.NEXT_PUBLIC_APPWRITE_ENDPOINT,
-  projectId: process.env.NEXT_PUBLIC_APPWRITE_PROJECT_ID,
-  databaseId: process.env.APPWRITE_DATABASE_ID,
-  internshipsTableId: process.env.APPWRITE_INTERNSHIPS_TABLE_ID,
-};
+export function getAppwriteBaseConfig() {
+  return {
+    endpoint: resolveAppwriteEndpoint(),
+    projectId: resolveAppwriteProjectId(),
+    databaseId: process.env.APPWRITE_DATABASE_ID?.trim() || null,
+  };
+}
 
 export function hasPublicInternshipConfig() {
-  return Boolean(appwriteConfig.endpoint && appwriteConfig.projectId && appwriteConfig.databaseId && appwriteConfig.internshipsTableId);
+  const cfg = getAppwriteBaseConfig();
+  return Boolean(cfg.endpoint && cfg.projectId && cfg.databaseId && process.env.APPWRITE_API_KEY?.trim());
 }

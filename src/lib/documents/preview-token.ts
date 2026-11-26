@@ -3,7 +3,13 @@ import { createHmac, timingSafeEqual } from "node:crypto";
 import type { DocumentSnapshot } from "./document-validation";
 
 type Claims = { snapshot: DocumentSnapshot; createdAt: number };
-function secret() { const value = process.env.APPWRITE_API_KEY; if (!value) throw new Error("Server signing key is not configured."); return createHmac("sha256", value).update("crewline-document-preview-v1").digest(); }
+function secret() {
+  const value = process.env.CREWLINE_PREVIEW_SECRET?.trim();
+  if (!value || value.length < 16) {
+    throw new Error("CREWLINE_PREVIEW_SECRET is not configured (minimum 16 characters required).");
+  }
+  return createHmac("sha256", value).update("crewline-document-preview-v1").digest();
+}
 function signature(data: string) { return createHmac("sha256", secret()).update(data).digest("base64url"); }
 
 export function signPreview(claims: Claims) {

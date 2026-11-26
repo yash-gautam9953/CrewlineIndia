@@ -3,6 +3,7 @@ import { ID } from "node-appwrite";
 import { z } from "zod";
 import { getAdminUser } from "@/lib/authz";
 import { createPrivilegedAppwriteClient } from "@/lib/appwrite/server";
+import { getAppwriteResources } from "@/lib/appwrite/resources";
 
 const schema = z.object({
   title: z.string().trim().min(3).max(180),
@@ -25,8 +26,9 @@ export async function POST(request: Request) {
   const input = schema.safeParse(await request.json().catch(() => null));
   if (!input.success) return NextResponse.json({ error: "Complete the required internship details." }, { status: 400 });
   const service = createPrivilegedAppwriteClient();
-  const tableId = process.env.APPWRITE_INTERNSHIPS_TABLE_ID;
-  if (!service || !tableId) return NextResponse.json({ error: "Internship table is not configured." }, { status: 503 });
+  const resources = service ? await getAppwriteResources().catch(() => null) : null;
+  if (!service || !resources) return NextResponse.json({ error: "Internship table is not configured." }, { status: 503 });
+  const tableId = resources.tables.internships;
 
   try {
     const row = await service.tablesDB.createRow({

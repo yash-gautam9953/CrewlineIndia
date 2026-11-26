@@ -4,31 +4,40 @@ import { redirect } from "next/navigation";
 import { Query } from "node-appwrite";
 import { getAdminUser } from "@/lib/authz";
 import { createPrivilegedAppwriteClient } from "@/lib/appwrite/server";
+import { getAppwriteResources } from "@/lib/appwrite/resources";
 import { formatCrewlineDate } from "@/lib/internship-dates";
 import { DeadlineExtensionForm } from "@/components/deadline-extension-form";
 import { EnrollmentCompleteForm } from "@/components/enrollment-complete-form";
 
 export const metadata: Metadata = { title: "Enrollment Management", robots: { index: false, follow: false } };
 
-export default async function AdminEnrollmentsPage({ searchParams }: { searchParams: Promise<{ domain?: string; status?: string }> }) {
+export default async function AdminEnrollmentsPage({ searchParams }: { searchParams: Promise<{ domain?: string; status?: string; page?: string }> }) {
   if (!await getAdminUser()) redirect("/login?next=%2Fadmin%2Fenrollments");
   const filters = await searchParams;
+  const page = Math.max(1, Number.parseInt(filters.page ?? "1", 10) || 1);
+  const pageSize = 25;
   const service = createPrivilegedAppwriteClient();
-  const enrollmentsTable = process.env.APPWRITE_ENROLLMENTS_TABLE_ID;
-  const profilesTable = process.env.APPWRITE_STUDENT_PROFILES_TABLE_ID;
-  const internshipsTable = process.env.APPWRITE_INTERNSHIPS_TABLE_ID;
-  const tasksTable = process.env.APPWRITE_TASKS_TABLE_ID;
-  const submissionsTable = process.env.APPWRITE_SUBMISSIONS_TABLE_ID;
-  const paymentTable = process.env.APPWRITE_PAYMENTS_TABLE_ID;
-  const assignmentsTable = process.env.APPWRITE_TASK_ASSIGNMENTS_TABLE_ID;
-  if (!service || !enrollmentsTable || !profilesTable || !internshipsTable || !tasksTable || !submissionsTable) throw new Error("Enrollment management is not configured.");
+  if (!service) throw new Error("Enrollment management is not configured.");
+  const { tables } = await getAppwriteResources();
+  const enrollmentsTable = tables.enrollments;
+  const profilesTable = tables.studentProfiles;
+  const internshipsTable = tables.internships;
+  const tasksTable = tables.tasks;
+  const submissionsTable = tables.submissions;
+  const paymentTable = tables.payments;
+  const assignmentsTable = tables.taskAssignments;
+  const enrollmentQueries = [Query.orderDesc("$createdAt"), Query.limit(pageSize), Query.offset((page - 1) * pageSize)];
+  if (["active", "completed", "withdrawn", "suspended"].includes(filters.status ?? "")) {
+    enrollmentQueries.push(Query.equal("status", filters.status!));
+  }
   const [enrollments, programs, tasks, submissions, payments] = await Promise.all([
-    service.tablesDB.listRows({ databaseId: service.databaseId, tableId: enrollmentsTable, queries: [Query.orderDesc("$createdAt"), Query.limit(100)] }),
+    service.tablesDB.listRows({ databaseId: service.databaseId, tableId: enrollmentsTable, queries: enrollmentQueries }),
     service.tablesDB.listRows({ databaseId: service.databaseId, tableId: internshipsTable, queries: [Query.limit(100)] }),
     service.tablesDB.listRows({ databaseId: service.databaseId, tableId: tasksTable, queries: [Query.limit(100)] }),
     service.tablesDB.listRows({ databaseId: service.databaseId, tableId: submissionsTable, queries: [Query.orderDesc("submittedAt"), Query.limit(100)] }),
-    paymentTable ? service.tablesDB.listRows({ databaseId: service.databaseId, tableId: paymentTable, queries: [Query.limit(100)] }) : Promise.resolve({ rows: [], total: 0 }),
+    service.tablesDB.listRows({ databaseId: service.databaseId, tableId: paymentTable, queries: [Query.limit(100)] }),
   ]);
+  const totalPages = Math.max(1, Math.ceil(enrollments.total / pageSize));
   const programById = new Map(programs.rows.map((row) => [row.$id, row as typeof row & Record<string, unknown>]));
   const options = [...new Set(programs.rows.map((row) => String((row as typeof row & Record<string, unknown>).domain ?? "")).filter(Boolean))].sort();
   const filtered = enrollments.rows.filter((row) => {
@@ -64,5 +73,7 @@ export default async function AdminEnrollmentsPage({ searchParams }: { searchPar
         <dl className="mt-4 grid gap-3 sm:grid-cols-4"><div><dt className="text-xs text-slate-500 dark:text-slate-400">Start</dt><dd className="mt-1 text-sm font-medium text-navy dark:text-[#F1F5FB]">{formatCrewlineDate(String(data.startedAt ?? ""))}</dd></div><div><dt className="text-xs text-slate-500 dark:text-slate-400">Planned end</dt><dd className="mt-1 text-sm font-medium text-navy dark:text-[#F1F5FB]">{formatCrewlineDate(String(data.scheduledEndAt ?? ""))}</dd></div><div><dt className="text-xs text-slate-500 dark:text-slate-400">Project deadline</dt><dd className="mt-1 text-sm font-medium text-navy dark:text-[#F1F5FB]">{formatCrewlineDate(String(data.submissionDeadlineAt ?? ""))}<DeadlineExtensionForm enrollmentId={enrollment.$id} currentDeadline={String(data.submissionDeadlineAt ?? "")} /></dd></div><div><dt className="text-xs text-slate-500 dark:text-slate-400">Payment</dt><dd className="mt-1 text-sm font-medium text-navy dark:text-[#F1F5FB]">{paymentStatus.replaceAll("_", " ")}</dd><Link className="mt-1 inline-block text-xs font-semibold text-brand underline dark:text-blue-400" href="/admin/payments">Manage payment</Link></div></dl>
         {data.status === "completed" ? <p className="mt-4 rounded-lg bg-emerald-50 p-3 text-sm font-semibold text-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-300">Completion recorded. Certificate eligibility is available in Document Management.</p> : canComplete ? <EnrollmentCompleteForm enrollmentId={enrollment.$id} /> : <p className="mt-4 text-xs text-slate-500 dark:text-slate-400">Completion waits for all assigned mandatory tasks to be approved and any disclosed payment to be verified or waived{!paymentAllowed ? ` (payment: ${paymentStatus.replaceAll("_", " ")})` : "."}</p>}
       </article>;
-    }) : <div className="rounded-xl border border-slate-200 bg-white p-8 text-sm text-slate-500 dark:border-slate-800 dark:bg-[#151F32] dark:text-slate-400">No enrollments match these filters.</div>}</section></div></main>;
+    }) : <div className="rounded-xl border border-slate-200 bg-white p-8 text-sm text-slate-500 dark:border-slate-800 dark:bg-[#151F32] dark:text-slate-400">No enrollments match these filters.</div>}</section>
+    <div className="mt-6 flex items-center justify-between"><span className="text-xs text-slate-500">Page {page} of {totalPages} ({enrollments.total} total)</span><div className="flex gap-2"><Link aria-disabled={page <= 1} href={`/admin/enrollments?page=${Math.max(1, page - 1)}${filters.domain ? `&domain=${encodeURIComponent(filters.domain)}` : ""}${filters.status ? `&status=${encodeURIComponent(filters.status)}` : ""}`} className={`rounded-lg border px-4 py-2 text-sm font-semibold ${page <= 1 ? "pointer-events-none border-slate-100 text-slate-300" : "border-slate-200 text-brand"}`}>Previous</Link><Link aria-disabled={page >= totalPages} href={`/admin/enrollments?page=${Math.min(totalPages, page + 1)}${filters.domain ? `&domain=${encodeURIComponent(filters.domain)}` : ""}${filters.status ? `&status=${encodeURIComponent(filters.status)}` : ""}`} className={`rounded-lg border px-4 py-2 text-sm font-semibold ${page >= totalPages ? "pointer-events-none border-slate-100 text-slate-300" : "border-slate-200 text-brand"}`}>Next</Link></div></div>
+    </div></main>;
 }

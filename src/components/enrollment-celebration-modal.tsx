@@ -1,21 +1,26 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { CheckCircle2, Sparkles, X } from "lucide-react";
 
 export function EnrollmentCelebrationModal({ show = false }: { show?: boolean }) {
   const [dismissed, setDismissed] = useState(false);
 
+  useEffect(() => {
+    if (show && typeof window !== "undefined" && window.history?.replaceState) {
+      const url = new URL(window.location.href);
+      if (url.searchParams.has("enrolled") || url.searchParams.has("applied")) {
+        url.searchParams.delete("enrolled");
+        url.searchParams.delete("applied");
+        window.history.replaceState({}, "", url.pathname + (url.searchParams.toString() ? `?${url.searchParams.toString()}` : ""));
+      }
+    }
+  }, [show]);
+
   if (!show || dismissed) return null;
 
   function dismiss() {
     setDismissed(true);
-    if (typeof window !== "undefined" && window.history?.replaceState) {
-      const url = new URL(window.location.href);
-      url.searchParams.delete("enrolled");
-      url.searchParams.delete("applied");
-      window.history.replaceState({}, "", url.pathname + (url.searchParams.toString() ? `?${url.searchParams.toString()}` : ""));
-    }
   }
 
   return (

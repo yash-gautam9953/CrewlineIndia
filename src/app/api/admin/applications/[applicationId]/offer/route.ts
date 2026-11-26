@@ -1,9 +1,12 @@
 import { NextResponse } from "next/server";
-import { ID, Messaging, Permission, Query, Role } from "node-appwrite";
+import { ID, Messaging, Query } from "node-appwrite";
 import { z } from "zod";
 import { getAdminUser } from "@/lib/authz";
 import { createPrivilegedAppwriteClient } from "@/lib/appwrite/server";
-import { isRateLimited } from "@/lib/rate-limit";
+import { getAppwriteResources } from "@/lib/appwrite/resources";
+import { checkRateLimit } from "@/lib/rate-limit";
+import { isTrustedOrigin } from "@/lib/security";
+import { ensureEnrollmentForApprovedApplication } from "@/lib/enrollments";
 import { generateDocumentId, getEventKey } from "@/lib/documents/document-id-generator";
 import { prepareDocument } from "@/lib/documents/document-validation";
 import { getDocumentAssets, getDocumentsConfig, storeIssuedDocument } from "@/lib/documents/document-service";
@@ -41,7 +44,8 @@ function offerEmail(input: z.infer<typeof schema>, applicant: Record<string, unk
 }
 
 export async function POST(request: Request, { params }: { params: Promise<{ applicationId: string }> }) {
-  if (isRateLimited(request, "admin-offer-send", 10)) return NextResponse.json({ error: "Too many offer requests. Please wait before trying again." }, { status: 429 });
+  if (!isTrustedOrigin(request)) return NextResponse.json({ error: "Untrusted request origin." }, { status: 403 });
+  if ((await checkRateLimit(request, "admin-offer-send", 10)).limited) return NextResponse.json({ error: "Too many offer requests. Please wait before trying again." }, { status: 429 });
   if (process.env.CREWLINE_EMAILS_ENABLED !== "true") return NextResponse.json({ error: "Email delivery is disabled in this environment. Set CREWLINE_EMAILS_ENABLED=true only for an approved mail test or production deployment." }, { status: 503 });
   const admin = await getAdminUser();
   if (!admin) return NextResponse.json({ error: "Administrator access required." }, { status: 403 });
@@ -49,9 +53,10 @@ export async function POST(request: Request, { params }: { params: Promise<{ app
   const input = schema.safeParse(await request.json().catch(() => null));
   if (!input.success) return NextResponse.json({ error: "Complete the required offer details and use secure HTTPS links." }, { status: 400 });
   const service = createPrivilegedAppwriteClient();
-  const applicationsTable = process.env.APPWRITE_APPLICATIONS_TABLE_ID;
-  const internshipsTable = process.env.APPWRITE_INTERNSHIPS_TABLE_ID;
-  if (!service || !applicationsTable || !internshipsTable) return NextResponse.json({ error: "Offer service is not configured." }, { status: 503 });
+  const resources = service ? await getAppwriteResources().catch(() => null) : null;
+  if (!service || !resources) return NextResponse.json({ error: "Offer service is not configured." }, { status: 503 });
+  const applicationsTable = resources.tables.applications;
+  const internshipsTable = resources.tables.internships;
 
   let application: Record<string, unknown> & { $id: string; internshipId: string; studentId: string; studentEmail: string; status: string };
   let program: Record<string, unknown> & { $id: string };
@@ -71,7 +76,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ app
   if (!expectedStartDate || input.data.offerStartDate !== expectedStartDate || input.data.offerDuration !== expectedDuration) {
     return NextResponse.json({ error: "The offer schedule must match the start date and duration selected in the student's application." }, { status: 409 });
   }
-  const documents = getDocumentsConfig();
+  const documents = await getDocumentsConfig();
   if (!documents) return NextResponse.json({ error: "Offer document storage is not configured." }, { status: 503 });
 
   const values = {
@@ -120,21 +125,11 @@ export async function POST(request: Request, { params }: { params: Promise<{ app
       data: { ...values, offerStatus: "sent", status: "approved", offerSentAt: new Date().toISOString(), offerSentBy: admin.$id, emailMessageId: message.$id },
     });
     let enrolled = false;
-    const enrollmentsTable = process.env.APPWRITE_ENROLLMENTS_TABLE_ID;
-    if (enrollmentsTable) {
-      try {
-        const matches = await service.tablesDB.listRows({ databaseId: service.databaseId, tableId: enrollmentsTable, queries: [Query.equal("studentId", application.studentId), Query.equal("internshipId", application.internshipId), Query.limit(1)] });
-        if (!matches.rows.length) {
-          await service.tablesDB.createRow({
-            databaseId: service.databaseId,
-            tableId: enrollmentsTable,
-            rowId: ID.unique(),
-            data: { studentId: application.studentId, internshipId: application.internshipId, applicationId, status: "active", startedAt: new Date().toISOString() },
-            permissions: [Permission.read(Role.user(application.studentId))],
-          });
-        }
-        enrolled = true;
-      } catch { enrolled = false; }
+    try {
+      await ensureEnrollmentForApprovedApplication(application, admin.$id);
+      enrolled = true;
+    } catch {
+      enrolled = false;
     }
     return NextResponse.json({ sent: true, enrolled });
   } catch {

@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { getAdminUser } from "@/lib/authz";
 import { createPrivilegedAppwriteClient } from "@/lib/appwrite/server";
+import { getAppwriteResources } from "@/lib/appwrite/resources";
 import { isRateLimited } from "@/lib/rate-limit";
 import { getDocumentsConfig, writeAuditLog } from "@/lib/documents/document-service";
 
@@ -14,8 +15,9 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ en
   const input = schema.safeParse(await request.json().catch(() => null));
   if (!input.success) return NextResponse.json({ error: "Choose a new date and provide a reason of at least 10 characters." }, { status: 400 });
   const service = createPrivilegedAppwriteClient();
-  const tableId = process.env.APPWRITE_ENROLLMENTS_TABLE_ID;
-  if (!service || !tableId) return NextResponse.json({ error: "Enrollment schedule is not configured." }, { status: 503 });
+  const resources = service ? await getAppwriteResources().catch(() => null) : null;
+  if (!service || !resources) return NextResponse.json({ error: "Enrollment schedule is not configured." }, { status: 503 });
+  const tableId = resources.tables.enrollments;
   const { enrollmentId } = await params;
   try {
     const enrollment = await service.tablesDB.getRow({ databaseId: service.databaseId, tableId, rowId: enrollmentId }) as Record<string, unknown>;
@@ -26,7 +28,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ en
     if (input.data.newDeadline <= oldDeadline.slice(0, 10)) return NextResponse.json({ error: "The extended deadline must be later than the current deadline." }, { status: 400 });
     const extendedAt = new Date().toISOString();
     await service.tablesDB.updateRow({ databaseId: service.databaseId, tableId, rowId: enrollmentId, data: { originalSubmissionDeadlineAt: enrollment.originalSubmissionDeadlineAt ?? oldDeadline, submissionDeadlineAt: newDeadline, deadlineExtensionReason: input.data.reason, deadlineExtendedBy: admin.$id, deadlineExtendedAt: extendedAt } });
-    const config = getDocumentsConfig();
+    const config = await getDocumentsConfig();
     if (config) await writeAuditLog(config, admin.$id, "enrollment.deadline_extended", enrollmentId, { previousDeadline: oldDeadline, newDeadline, reason: input.data.reason }, "enrollment");
     return NextResponse.json({ updated: true, submissionDeadlineAt: newDeadline });
   } catch { return NextResponse.json({ error: "Enrollment deadline could not be updated." }, { status: 404 }); }

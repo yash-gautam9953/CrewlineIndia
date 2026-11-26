@@ -1,7 +1,25 @@
 import "server-only";
 import { chromium } from "playwright";
+import { invokeDocumentFunction, isDocumentFunctionConfigured } from "./function-client";
 
 export async function generatePdf(html: string, landscape: boolean) {
+  if (isDocumentFunctionConfigured()) {
+    const result = await invokeDocumentFunction<{ pdfBase64: string }>({
+      action: "render_pdf",
+      html,
+      landscape,
+    });
+    if (!result.pdfBase64) {
+      throw new Error("Appwrite document function did not return PDF bytes.");
+    }
+    return Buffer.from(result.pdfBase64, "base64");
+  }
+
+  // Require Appwrite Document Function in production; never silently fall back to untested local/Browserless runtimes
+  if (process.env.NODE_ENV === "production") {
+    throw new Error("APPWRITE_DOCUMENT_FUNCTION_ID is required for PDF generation in production.");
+  }
+
   const wsEndpoint =
     process.env.CHROME_WS_ENDPOINT ||
     (process.env.BROWSERLESS_API_KEY

@@ -77,9 +77,9 @@ export function ApplicationForm({ internshipSlug, studentName, studentEmail, pro
           <span className="mt-1 block text-xs text-slate-500 dark:text-slate-400">Fixed duration: Exactly 1 Calendar Month</span>
         </label>
         <label className={labelClass}>
-          Internship start date *
-          <input name="requestedStartDate" type="date" required defaultValue={new Date().toISOString().slice(0, 10)} min={new Date().toISOString().slice(0, 10)} className={inputClass} />
-          <span className="mt-1 block text-xs text-slate-500 dark:text-slate-400">Your enrollment starts on this date</span>
+          Internship start date
+          <input name="requestedStartDate" type="date" readOnly value={new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Kolkata", year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date())} className={`${inputClass} cursor-not-allowed bg-slate-50 font-semibold text-[#101D35] dark:bg-[#1C2940] dark:text-[#F1F5FB]`} />
+          <span className="mt-1 block text-xs text-slate-500 dark:text-slate-400">Starts immediately today upon enrollment</span>
         </label>
         <label className={`${labelClass} sm:col-span-2`}>
           City *

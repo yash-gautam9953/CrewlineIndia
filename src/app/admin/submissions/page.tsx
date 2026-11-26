@@ -5,6 +5,7 @@ import { ExternalLink, FileCheck, Search } from "lucide-react";
 import { Query } from "node-appwrite";
 import { getAdminUser } from "@/lib/authz";
 import { createPrivilegedAppwriteClient } from "@/lib/appwrite/server";
+import { getAppwriteResources } from "@/lib/appwrite/resources";
 import { SubmissionReviewForm } from "@/components/submission-review-form";
 import { AdminPaymentReviewForm } from "@/components/admin-payment-review-form";
 
@@ -22,11 +23,11 @@ export default async function AdminSubmissionsPage({ searchParams }: { searchPar
   if (!await getAdminUser()) redirect("/login?next=%2Fadmin%2Fsubmissions");
   const filters = await searchParams;
   const service = createPrivilegedAppwriteClient();
-  const submissionsTable = process.env.APPWRITE_SUBMISSIONS_TABLE_ID;
-  const tasksTable = process.env.APPWRITE_TASKS_TABLE_ID;
-  const paymentsTable = process.env.APPWRITE_PAYMENTS_TABLE_ID;
-
-  if (!service || !submissionsTable || !tasksTable) throw new Error("Submission review is not configured.");
+  if (!service) throw new Error("Submission review is not configured.");
+  const { tables } = await getAppwriteResources();
+  const submissionsTable = tables.submissions;
+  const tasksTable = tables.tasks;
+  const paymentsTable = tables.payments;
 
   const page = Math.max(1, Number.parseInt(filters.page ?? "1", 10) || 1);
   const pageSize = 25;

@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { getAdminUser } from "@/lib/authz";
 import { createPrivilegedAppwriteClient } from "@/lib/appwrite/server";
+import { getAppwriteResources } from "@/lib/appwrite/resources";
 import { isRateLimited } from "@/lib/rate-limit";
 import { ensureEnrollmentForApprovedApplication } from "@/lib/enrollments";
 
@@ -14,8 +15,9 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ ap
   const parsed = schema.safeParse(await request.json().catch(() => null));
   if (!parsed.success) return NextResponse.json({ error: "Choose approve or reject and provide a valid reason." }, { status: 400 });
   const service = createPrivilegedAppwriteClient();
-  const tableId = process.env.APPWRITE_APPLICATIONS_TABLE_ID;
-  if (!service || !tableId) return NextResponse.json({ error: "Application service is not configured." }, { status: 503 });
+  const resources = service ? await getAppwriteResources().catch(() => null) : null;
+  if (!service || !resources) return NextResponse.json({ error: "Application service is not configured." }, { status: 503 });
+  const tableId = resources.tables.applications;
   const { applicationId } = await params;
   try {
     const application = await service.tablesDB.getRow({ databaseId: service.databaseId, tableId, rowId: applicationId }) as unknown as Record<string, unknown> & { $id: string; studentId: string; internshipId: string };

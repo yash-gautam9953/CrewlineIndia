@@ -1,11 +1,12 @@
 import "server-only";
 import { ID, Permission, Query, Role } from "node-appwrite";
 import { createPrivilegedAppwriteClient } from "@/lib/appwrite/server";
+import { requireTableId } from "@/lib/appwrite/resources";
 
 export async function ensureStudentProfile(user: { $id: string; name: string; email: string }) {
   const service = createPrivilegedAppwriteClient();
-  const tableId = process.env.APPWRITE_STUDENT_PROFILES_TABLE_ID;
-  if (!service || !tableId) throw new Error("Student profile storage is not configured.");
+  if (!service) throw new Error("Student profile storage is not configured.");
+  const tableId = await requireTableId("studentProfiles");
   const matches = await service.tablesDB.listRows({
     databaseId: service.databaseId,
     tableId,

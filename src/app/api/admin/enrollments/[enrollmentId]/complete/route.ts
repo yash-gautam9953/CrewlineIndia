@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { Query } from "node-appwrite";
 import { getAdminUser } from "@/lib/authz";
 import { createPrivilegedAppwriteClient } from "@/lib/appwrite/server";
+import { getAppwriteResources } from "@/lib/appwrite/resources";
 import { isRateLimited } from "@/lib/rate-limit";
 import { getDocumentsConfig, writeAuditLog } from "@/lib/documents/document-service";
 
@@ -13,10 +14,11 @@ export async function POST(request: Request, { params }: { params: Promise<{ enr
   if (!admin) return NextResponse.json({ error: "Administrator access required." }, { status: 403 });
 
   const service = createPrivilegedAppwriteClient();
-  const enrollmentTable = process.env.APPWRITE_ENROLLMENTS_TABLE_ID;
-  const taskTable = process.env.APPWRITE_TASKS_TABLE_ID;
-  const submissionsTable = process.env.APPWRITE_SUBMISSIONS_TABLE_ID;
-  if (!service || !enrollmentTable || !taskTable || !submissionsTable) return NextResponse.json({ error: "Enrollment completion is not configured." }, { status: 503 });
+  const resources = service ? await getAppwriteResources().catch(() => null) : null;
+  if (!service || !resources) return NextResponse.json({ error: "Enrollment completion is not configured." }, { status: 503 });
+  const enrollmentTable = resources.tables.enrollments;
+  const taskTable = resources.tables.tasks;
+  const submissionsTable = resources.tables.submissions;
   const { enrollmentId } = await params;
 
   try {
@@ -29,8 +31,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ enr
     const selectedTasks = mandatory.rows.filter((task) => (task as typeof task & Record<string, unknown>).assignmentMode === "selected_students");
     let selectedTaskIds = new Set<string>();
     if (selectedTasks.length) {
-      const assignmentsTable = process.env.APPWRITE_TASK_ASSIGNMENTS_TABLE_ID;
-      if (!assignmentsTable) return NextResponse.json({ error: "Selected task assignment storage is not configured." }, { status: 503 });
+      const assignmentsTable = resources.tables.taskAssignments;
       const assignments = await service.tablesDB.listRows({ databaseId: service.databaseId, tableId: assignmentsTable, queries: [Query.equal("studentId", String(enrollment.studentId)), Query.equal("taskId", selectedTasks.map((task) => task.$id)), Query.limit(100)] });
       selectedTaskIds = new Set(assignments.rows.map((row) => String(row.taskId)));
     }
@@ -42,16 +43,14 @@ export async function POST(request: Request, { params }: { params: Promise<{ enr
     const missingCount = requiredTaskIds.filter((taskId) => !approvedTaskIds.has(taskId)).length;
     if (missingCount) return NextResponse.json({ error: `${missingCount} mandatory task${missingCount === 1 ? " is" : "s are"} still awaiting approval.` }, { status: 409 });
 
-    const paymentTable = process.env.APPWRITE_PAYMENTS_TABLE_ID;
-    if (paymentTable) {
-      const payments = await service.tablesDB.listRows({ databaseId: service.databaseId, tableId: paymentTable, queries: [Query.equal("enrollmentId", enrollmentId), Query.limit(1)] });
-      const status = String(payments.rows[0]?.status ?? "not_applicable");
-      if (!paymentAllowsCompletion.has(status)) return NextResponse.json({ error: "A disclosed payment request must be verified or waived before completion." }, { status: 409 });
-    }
+    const paymentTable = resources.tables.payments;
+    const payments = await service.tablesDB.listRows({ databaseId: service.databaseId, tableId: paymentTable, queries: [Query.equal("enrollmentId", enrollmentId), Query.limit(1)] });
+    const status = String(payments.rows[0]?.status ?? "not_applicable");
+    if (!paymentAllowsCompletion.has(status)) return NextResponse.json({ error: "A disclosed payment request must be verified or waived before completion." }, { status: 409 });
 
     const completedAt = new Date().toISOString();
     await service.tablesDB.updateRow({ databaseId: service.databaseId, tableId: enrollmentTable, rowId: enrollmentId, data: { status: "completed", completedAt } });
-    const config = getDocumentsConfig();
+    const config = await getDocumentsConfig();
     if (config) await writeAuditLog(config, admin.$id, "enrollment.completed", enrollmentId, { studentId: enrollment.studentId, approvedMandatoryTaskCount: requiredTaskIds.length }, "enrollment");
     return NextResponse.json({ completed: true, completedAt });
   } catch (error) {

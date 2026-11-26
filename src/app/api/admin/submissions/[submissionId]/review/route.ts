@@ -3,8 +3,11 @@ import { ID, Query } from "node-appwrite";
 import { z } from "zod";
 import { getAdminUser } from "@/lib/authz";
 import { createPrivilegedAppwriteClient } from "@/lib/appwrite/server";
-import { isRateLimited } from "@/lib/rate-limit";
+import { getAppwriteResources } from "@/lib/appwrite/resources";
+import { checkRateLimit } from "@/lib/rate-limit";
+import { isTrustedOrigin } from "@/lib/security";
 import { autoIssueCompletionCertificatesForApprovedSubmission, getDocumentsConfig, writeAuditLog } from "@/lib/documents/document-service";
+import { sendCrewlineEmail, submissionReviewEmail } from "@/lib/email";
 
 const schema = z.object({
   decision: z.enum(["revision_required", "approved", "rejected"]),
@@ -13,7 +16,8 @@ const schema = z.object({
 });
 
 export async function PATCH(request: Request, { params }: { params: Promise<{ submissionId: string }> }) {
-  if (isRateLimited(request, "admin-submission-review", 40)) {
+  if (!isTrustedOrigin(request)) return NextResponse.json({ error: "Untrusted request origin." }, { status: 403 });
+  if ((await checkRateLimit(request, "admin-submission-review", 40)).limited) {
     return NextResponse.json({ error: "Too many review requests. Try again shortly." }, { status: 429 });
   }
   const admin = await getAdminUser();
@@ -26,13 +30,14 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ su
   }
 
   const service = createPrivilegedAppwriteClient();
-  const submissionsTable = process.env.APPWRITE_SUBMISSIONS_TABLE_ID;
-  const reviewsTable = process.env.APPWRITE_REVIEWS_TABLE_ID;
-  const enrollmentsTable = process.env.APPWRITE_ENROLLMENTS_TABLE_ID;
-  const paymentsTable = process.env.APPWRITE_PAYMENTS_TABLE_ID;
-  if (!service || !submissionsTable || !reviewsTable || !enrollmentsTable) {
+  const resources = service ? await getAppwriteResources().catch(() => null) : null;
+  if (!service || !resources) {
     return NextResponse.json({ error: "Review service is not configured." }, { status: 503 });
   }
+  const submissionsTable = resources.tables.submissions;
+  const reviewsTable = resources.tables.reviews;
+  const enrollmentsTable = resources.tables.enrollments;
+  const paymentsTable = resources.tables.payments;
 
   const { submissionId } = await params;
   try {
@@ -119,7 +124,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ su
       }
     }
 
-    const audit = getDocumentsConfig();
+    const audit = await getDocumentsConfig();
     if (audit) {
       await writeAuditLog(
         audit,
@@ -136,6 +141,16 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ su
         "submission"
       );
     }
+
+    await sendCrewlineEmail({
+      userId: studentId,
+      subject: `Crewline project review update: ${input.data.decision.replaceAll("_", " ")}`,
+      html: submissionReviewEmail({
+        decision: input.data.decision,
+        feedback: input.data.feedback,
+        certificatesIssued: generatedCertificates,
+      }),
+    });
 
     return NextResponse.json({ reviewed: true, certificatesIssued: generatedCertificates });
   } catch (error) {
