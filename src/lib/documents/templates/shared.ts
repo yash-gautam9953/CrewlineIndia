@@ -16,6 +16,29 @@ export const escapeHtml = (value: string) => value.replace(/[&<>"']/g, (char) =>
 export const safeText = (value: string) => escapeHtml(value || "—");
 export const dateText = (value: string) => value ? new Date(value).toLocaleDateString("en-IN", { day: "2-digit", month: "long", year: "numeric", timeZone: "UTC" }) : "—";
 
+export function formatRoleTitle(title: string): string {
+  const trimmed = (title || "Internship Program").trim();
+  if (/internship$/i.test(trimmed)) {
+    return trimmed.replace(/\s*internship$/i, " Intern");
+  }
+  if (!/intern$/i.test(trimmed)) {
+    return `${trimmed} Intern`;
+  }
+  return trimmed;
+}
+
+export function isDomainRedundant(roleOrTitle: string, domain: string): boolean {
+  const cleanRole = roleOrTitle.trim().toLowerCase();
+  const cleanDomain = domain.trim().toLowerCase();
+  if (!cleanRole || !cleanDomain) return false;
+  const baseRole = cleanRole.replace(/\s*intern(ship)?$/i, "").trim();
+  return (
+    cleanDomain === cleanRole ||
+    cleanRole.includes(cleanDomain) ||
+    cleanDomain.includes(baseRole)
+  );
+}
+
 export function brandHeader(snapshot: DocumentSnapshot, assets: DocumentAssets) {
   return `<header class="brand"><img class="logo" src="${assets.logo}" alt="Crewline"/><div><strong>CREWLINE</strong><span>Learn. Build. Get Recognized.</span></div><div class="doc-id">${safeText(snapshot.documentId)}<small>Issued ${dateText(snapshot.issueDate)}</small></div></header>`;
 }

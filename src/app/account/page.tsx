@@ -11,7 +11,6 @@ import { EmailVerification } from "@/components/email-verification";
 import { getStudentDocuments } from "@/lib/documents/student-documents";
 import { formatCrewlineDate } from "@/lib/internship-dates";
 import { EnrollmentCelebrationModal } from "@/components/enrollment-celebration-modal";
-import { ThemeToggle } from "@/components/theme-toggle";
 
 export const metadata: Metadata = { title: "My account", robots: { index: false, follow: false } };
 const applicationLabels: Record<string, string> = { pending: "Awaiting review", approved: "Enrolled & Active", rejected: "Not selected", withdrawn: "Withdrawn" };
@@ -83,7 +82,7 @@ export default async function AccountPage({ searchParams }: { searchParams: Prom
         {/* Profile and Applications Grid */}
         <div className="mt-8 grid gap-6 lg:grid-cols-[.85fr_1.15fr]">
           {/* Profile Card */}
-          <section className="rounded-2xl border border-slate-200/80 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-[#151F32]">
+          <section id="profile" className="scroll-mt-28 rounded-2xl border border-slate-200/80 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-[#151F32]">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-3">
                 <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-blue-50 text-[#1769D2] dark:bg-blue-950/60 dark:text-[#2575E6]">
@@ -110,17 +109,6 @@ export default async function AccountPage({ searchParams }: { searchParams: Prom
               </summary>
               <ProfileEditor profile={profile} email={session.user.email} />
             </details>
-
-            {/* Theme Preference */}
-            <div className="mt-6 border-t border-slate-100 pt-5 dark:border-slate-800/80">
-              <div className="flex flex-col justify-between gap-3 sm:flex-row sm:items-center">
-                <div>
-                  <p className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">Interface Theme</p>
-                  <p className="mt-0.5 text-xs text-slate-500 dark:text-slate-400">Sync with system or choose manually</p>
-                </div>
-                <ThemeToggle variant="segmented" />
-              </div>
-            </div>
           </section>
 
           {/* Applications Card */}
@@ -166,7 +154,7 @@ export default async function AccountPage({ searchParams }: { searchParams: Prom
         </div>
 
         {/* My Internships Section */}
-        <section className="mt-8 rounded-2xl border border-slate-200/80 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-[#151F32]">
+        <section id="internships" className="scroll-mt-28 mt-8 rounded-2xl border border-slate-200/80 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-[#151F32]">
           <p className="text-xs font-bold uppercase tracking-[.16em] text-[#1769D2] dark:text-[#2575E6]">My Internships</p>
           <h2 className="mt-2 text-2xl font-bold text-[#101D35] dark:text-[#F1F5FB]">Active Learning Programs</h2>
           <p className="mt-1 text-sm text-slate-600 dark:text-[#A8B5C8]">
@@ -279,7 +267,7 @@ export default async function AccountPage({ searchParams }: { searchParams: Prom
         </section>
 
         {/* Project Workspace & Tasks */}
-        <section className="mt-8 rounded-2xl border border-slate-200/80 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-[#151F32]">
+        <section id="tasks" className="scroll-mt-28 mt-8 rounded-2xl border border-slate-200/80 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-[#151F32]">
           <p className="text-xs font-bold uppercase tracking-[.16em] text-[#1769D2] dark:text-[#2575E6]">Project workspace</p>
           <h2 className="mt-2 text-xl font-bold text-[#101D35] dark:text-[#F1F5FB]">My Projects & Tasks</h2>
 
@@ -394,7 +382,7 @@ export default async function AccountPage({ searchParams }: { searchParams: Prom
         </section>
 
         {/* Fee status */}
-        <section className="mt-8 rounded-2xl border border-slate-200/80 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-[#151F32]">
+        <section id="payments" className="scroll-mt-28 mt-8 rounded-2xl border border-slate-200/80 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-[#151F32]">
           <p className="text-xs font-bold uppercase tracking-[.16em] text-[#1769D2] dark:text-[#2575E6]">Fee status</p>
           <h2 className="mt-2 text-xl font-bold text-[#101D35] dark:text-[#F1F5FB]">My Payment</h2>
 
@@ -439,7 +427,7 @@ export default async function AccountPage({ searchParams }: { searchParams: Prom
         </section>
 
         {/* Documents */}
-        <section className="mt-8 rounded-2xl border border-slate-200/80 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-[#151F32]">
+        <section id="documents" className="scroll-mt-28 mt-8 rounded-2xl border border-slate-200/80 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-[#151F32]">
           <p className="text-xs font-bold uppercase tracking-[.16em] text-[#1769D2] dark:text-[#2575E6]">Student documents</p>
           <h2 className="mt-2 text-xl font-bold text-[#101D35] dark:text-[#F1F5FB]">My Documents</h2>
 

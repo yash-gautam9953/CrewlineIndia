@@ -132,40 +132,6 @@ button, input, textarea, select { font: inherit; }
   -webkit-background-clip: text;
 }
 
-.stat-card {
-  transition: transform 0.28s ease, border-color 0.28s ease, background-color 0.28s ease, box-shadow 0.28s ease;
-}
-.stat-card:hover {
-  transform: translateY(-4px);
-  border-color: rgba(23, 105, 210, 0.35);
-  box-shadow: 0 8px 24px -4px rgba(18, 59, 112, 0.08);
-}
-.dark .stat-card:hover {
-  border-color: rgba(37, 117, 230, 0.45);
-  box-shadow: 0 8px 24px -4px rgba(0, 0, 0, 0.35);
-}
-
-.live-dot {
-  width: 8px;
-  height: 8px;
-  border-radius: 999px;
-  background: #10B981;
-  box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.55);
-  animation: live-pulse 1.8s ease-out infinite;
-}
-
-.stats-orb {
-  pointer-events: none;
-  position: absolute;
-  width: 24rem;
-  height: 24rem;
-  border-radius: 999px;
-  filter: blur(80px);
-  opacity: 0.22;
-}
-.stats-orb-one { right: -5rem; top: -12rem; background: #7655D9; }
-.stats-orb-two { left: -8rem; bottom: -16rem; background: #1769D2; }
-
 @media (prefers-reduced-motion: no-preference) {
   .fade-in { animation: fade-in 0.65s ease both; }
   .float { animation: float 6s ease-in-out infinite; }
@@ -173,10 +139,9 @@ button, input, textarea, select { font: inherit; }
   @keyframes fade-in { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: translateY(0); } }
   @keyframes float { 0%,100% { transform: translateY(0); } 50% { transform: translateY(-8px); } }
   @keyframes gradient-drift { from { background-position: 0% 50%; } to { background-position: 100% 50%; } }
-  @keyframes live-pulse { 0% { box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.5); } 70%,100% { box-shadow: 0 0 0 7px rgba(16, 185, 129, 0); } }
 }
 
 @media (prefers-reduced-motion: reduce) {
   html { scroll-behavior: auto; }
-  .stat-card, .live-dot, .hero-title-gradient { animation: none !important; transition: none !important; }
+  .hero-title-gradient { animation: none !important; transition: none !important; }
 }

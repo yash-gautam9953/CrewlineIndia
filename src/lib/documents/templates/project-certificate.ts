@@ -1,6 +1,6 @@
 import "server-only";
 import type { DocumentSnapshot } from "../document-validation";
-import { dateText, documentHtml, safeText, type DocumentAssets } from "./shared";
+import { dateText, documentHtml, isDomainRedundant, safeText, type DocumentAssets } from "./shared";
 
 const heading = "CERTIFICATE OF PROJECT COMPLETION";
 
@@ -229,6 +229,13 @@ const projCss = `
 
 export function renderProjectCertificate(snapshot: DocumentSnapshot, assets: DocumentAssets, qr: string) {
   const sealHtml = assets.badge ? `<img class="seal" src="${assets.badge}" alt="Crewline project completion badge" />` : "";
+  const title = safeText(snapshot.documentTitle || "Internship Program");
+  const rawDomain = snapshot.domain || "Technology";
+  const domain = safeText(rawDomain);
+  const redundant = isDomainRedundant(title, rawDomain);
+  const programDomainSnippet = redundant
+    ? `as part of the <strong>${title}</strong><br />at <strong>Crewline</strong>.`
+    : `as part of the <strong>${title}</strong> in the <strong>${domain}</strong> Domain<br />at <strong>Crewline</strong>.`;
 
   const content = `
   <main class="certificate">
@@ -318,7 +325,7 @@ export function renderProjectCertificate(snapshot: DocumentSnapshot, assets: Doc
       <section class="copy">
         <p>has successfully completed the internship project titled</p>
         <p><span class="token project-token">“${safeText(snapshot.projectTitle)}”</span></p>
-        <p>as part of the <strong>${safeText(snapshot.documentTitle)}</strong> in the <strong>${safeText(snapshot.domain)}</strong> Domain<br />at <strong>Crewline</strong>.</p>
+        <p>${programDomainSnippet}</p>
         <p>The project demonstrates the successful application of learned concepts,<br />technical skills, and problem-solving abilities in a real-world scenario.</p>
       </section>
 

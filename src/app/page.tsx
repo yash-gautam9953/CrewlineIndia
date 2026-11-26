@@ -1,8 +1,6 @@
 import Link from "next/link";
 import { ArrowRight, ArrowUpRight, Award, BookOpenCheck, Braces, Cloud, Code2, Cpu, Database, ShieldCheck, Sparkles } from "lucide-react";
 import { getPublishedInternships } from "@/lib/internships";
-import { getPublicStats } from "@/lib/public-stats";
-import { LiveStats } from "@/components/live-stats";
 import { InternshipCard, InternshipStatus } from "@/components/internship-card";
 
 const domains = [
@@ -15,7 +13,7 @@ const domains = [
 ];
 
 export default async function Home() {
-  const [result, stats] = await Promise.all([getPublishedInternships(3), getPublicStats()]);
+  const result = await getPublishedInternships(3);
   return (
     <main>
       <section className="hero-glow surface-grid relative border-b border-slate-100 dark:border-slate-800">
@@ -61,8 +59,6 @@ export default async function Home() {
         </div>
         {result.internships.length === 0 && <InternshipStatus status={result.status} />}
       </section>
-
-      <LiveStats stats={stats} />
 
       <section className="bg-cloud dark:bg-[#0B1220] py-24">
         <div className="mx-auto max-w-7xl px-5 sm:px-8">

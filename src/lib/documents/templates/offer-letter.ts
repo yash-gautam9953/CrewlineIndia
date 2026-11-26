@@ -1,6 +1,6 @@
 import "server-only";
 import type { DocumentSnapshot } from "../document-validation";
-import { dateText, documentHtml, safeText, type DocumentAssets } from "./shared";
+import { dateText, documentHtml, formatRoleTitle, isDomainRedundant, safeText, type DocumentAssets } from "./shared";
 
 const heading = "INTERNSHIP OFFER LETTER";
 
@@ -58,11 +58,11 @@ const offerCss = `
   .title-rule span { height: 1px; background: #b9c9ef; flex: 1; }
   .title-rule b { display: block; width: 45mm; height: 1.8mm; border-radius: 5px; background: linear-gradient(90deg,var(--blue),var(--purple)); }
   .greeting { font-size: 15pt; font-weight: 700; color: var(--navy); margin: 0 0 3mm; }
-  .intro { font-size: 13pt; line-height: 1.25; margin: 0 0 4mm; }
+  .intro { font-size: 13pt; line-height: 1.35; margin: 0 0 9mm; }
   strong { color: #2d3d65; font-weight: 700; }
   .details {
     position: relative; border: 1.2px solid #91b2ff; border-radius: 4mm;
-    padding: 6mm 6mm 2mm; margin: 0 0 3mm;
+    padding: 7mm 6mm 2.5mm; margin: 0 0 3mm;
     background: linear-gradient(110deg, #fff 0%, #f8faff 100%);
   }
   .details-label {
@@ -110,17 +110,33 @@ const offerCss = `
 `;
 
 export function renderOfferLetter(snapshot: DocumentSnapshot, assets: DocumentAssets) {
-  const role = safeText(snapshot.documentTitle || "Internship Program");
-  const domain = safeText(snapshot.domain || "Technology");
+  const rawRole = snapshot.documentTitle || "Internship Program";
+  const roleTitle = formatRoleTitle(rawRole);
+  const role = safeText(roleTitle);
+  const rawDomain = snapshot.domain || "Technology";
+  const domain = safeText(rawDomain);
   const duration = safeText(snapshot.duration || "1 Month");
   const startDate = dateText(snapshot.startDate);
   const endDate = dateText(snapshot.endDate);
-  const workMode = safeText(snapshot.workMode || "Virtual / Remote");
+
+  const rawWorkMode = (snapshot.workMode || "Virtual / Remote").trim();
+  const workMode = safeText(
+    /^remote$/i.test(rawWorkMode)
+      ? "Virtual / Remote"
+      : rawWorkMode.charAt(0).toUpperCase() + rawWorkMode.slice(1)
+  );
+
   const issueDate = dateText(snapshot.issueDate);
   const studentName = safeText(snapshot.studentName);
   const offerId = safeText(snapshot.documentId);
   const signatoryName = safeText(snapshot.signatoryName);
   const signatoryDesignation = safeText(snapshot.signatoryDesignation);
+
+  const redundant = isDomainRedundant(roleTitle, rawDomain);
+
+  const introText = redundant
+    ? `Congratulations! We are pleased to offer you the position of <strong>${role}</strong> at <strong>Crewline</strong>. This letter confirms your selection for our virtual internship program for the period from <strong>${startDate}</strong> to <strong>${endDate}</strong>.`
+    : `Congratulations! We are pleased to offer you the position of <strong>${role}</strong> at <strong>Crewline</strong> in the <strong>${domain}</strong> domain. This letter confirms your selection for our virtual internship program for the period from <strong>${startDate}</strong> to <strong>${endDate}</strong>.`;
 
   const stipendParagraph = snapshot.stipend
     ? `<p>Any <strong>stipend</strong> (${safeText(snapshot.stipend)}), if applicable, will be governed by the terms communicated separately.</p>`
@@ -162,11 +178,7 @@ export function renderOfferLetter(snapshot: DocumentSnapshot, assets: DocumentAs
 
     <p class="greeting">Dear ${studentName},</p>
     <p class="intro">
-      Congratulations! We are pleased to offer you the position of
-      <strong>${role}</strong> at <strong>Crewline</strong> in the
-      <strong>${domain}</strong> domain. This letter confirms your selection
-      for our virtual internship program for the period from
-      <strong>${startDate}</strong> to <strong>${endDate}</strong>.
+      ${introText}
     </p>
 
     <section class="details">

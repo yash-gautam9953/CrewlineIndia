@@ -1,6 +1,6 @@
 import "server-only";
 import type { DocumentSnapshot } from "../document-validation";
-import { dateText, documentHtml, safeText, type DocumentAssets } from "./shared";
+import { dateText, documentHtml, formatRoleTitle, isDomainRedundant, safeText, type DocumentAssets } from "./shared";
 
 const heading = "CERTIFICATE OF INTERNSHIP COMPLETION";
 
@@ -219,6 +219,21 @@ const certCss = `
 
 export function renderInternshipCertificate(snapshot: DocumentSnapshot, assets: DocumentAssets, qr: string) {
   const sealHtml = assets.badge ? `<img class="seal" src="${assets.badge}" alt="Crewline internship completion badge" />` : "";
+  const roleTitle = formatRoleTitle(snapshot.documentTitle || "Internship Program");
+  const role = safeText(roleTitle);
+  const rawDomain = snapshot.domain || "Technology";
+  const domain = safeText(rawDomain);
+  const redundant = isDomainRedundant(roleTitle, rawDomain);
+  const rawWorkMode = (snapshot.workMode || "Remote").trim();
+  const workMode = safeText(
+    /^remote$/i.test(rawWorkMode)
+      ? "Virtual / Remote"
+      : rawWorkMode.charAt(0).toUpperCase() + rawWorkMode.slice(1)
+  );
+
+  const roleDomainSnippet = redundant
+    ? `<span class="token">${role}</span>.`
+    : `<span class="token">${role}</span> in the <span class="token">${domain}</span> Domain.`;
 
   const content = `
   <main class="certificate">
@@ -324,8 +339,8 @@ export function renderInternshipCertificate(snapshot: DocumentSnapshot, assets: 
 
       <section class="copy">
         <p>has successfully completed a <span class="token">${safeText(snapshot.duration)}</span> Virtual Internship at <strong>Crewline</strong> as a</p>
-        <p><span class="token">${safeText(snapshot.documentTitle)}</span> in the <span class="token">${safeText(snapshot.domain)}</span> Domain.</p>
-        <p>The internship was conducted from <strong>${dateText(snapshot.startDate)}</strong> to <strong>${dateText(snapshot.endDate)}</strong><br />in <strong>${safeText(snapshot.workMode || "Remote")}</strong> mode.</p>
+        <p>${roleDomainSnippet}</p>
+        <p>The internship was conducted from <strong>${dateText(snapshot.startDate)}</strong> to <strong>${dateText(snapshot.endDate)}</strong><br />in <strong>${workMode}</strong> mode.</p>
         <p>During this period, the intern worked on real-world tasks and projects,<br />demonstrating consistent effort, technical skills, and a strong learning attitude.</p>
       </section>
 
