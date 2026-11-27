@@ -24,6 +24,6 @@ export async function GET(_request: Request, { params }: { params: Promise<{ tas
     if (typeof task.resourceFileId !== "string" || !task.resourceFileId) return NextResponse.json({ error: "This task has no attached resource." }, { status: 404 });
     const bytes = await new Storage(service.client).getFileDownload({ bucketId, fileId: task.resourceFileId });
     const filename = typeof task.resourceFileName === "string" ? task.resourceFileName.replace(/[\r\n"\\/]/g, "_") : "task-resource.pdf";
-    return new NextResponse(bytes, { headers: { "content-type": "application/pdf", "content-disposition": `attachment; filename="${filename}"`, "cache-control": "private, no-store", "x-content-type-options": "nosniff" } });
+    return new NextResponse(bytes, { headers: { "content-type": "application/pdf", "content-disposition": `inline; filename="${filename}"`, "cache-control": "private, no-store", "x-content-type-options": "nosniff" } });
   } catch { return NextResponse.json({ error: "Resource not found." }, { status: 404 }); }
 }

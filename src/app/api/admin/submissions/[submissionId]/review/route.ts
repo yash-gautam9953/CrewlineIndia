@@ -9,11 +9,16 @@ import { isTrustedOrigin } from "@/lib/security";
 import { autoIssueCompletionCertificatesForApprovedSubmission, getDocumentsConfig, writeAuditLog } from "@/lib/documents/document-service";
 import { sendCrewlineEmail, submissionReviewEmail } from "@/lib/email";
 
-const schema = z.object({
-  decision: z.enum(["revision_required", "approved", "rejected"]),
-  feedback: z.string().trim().min(5, "Feedback must be at least 5 characters.").max(5000),
-  score: z.union([z.literal(""), z.coerce.number().int().min(0).max(10000)]).optional().default(""),
-});
+const schema = z
+  .object({
+    decision: z.enum(["revision_required", "approved", "rejected"]),
+    feedback: z.string().trim().max(5000).optional().default(""),
+    score: z.union([z.literal(""), z.coerce.number().int().min(0).max(10000)]).optional().default(""),
+  })
+  .refine(
+    (value) => value.decision === "approved" || value.feedback.trim().length >= 5,
+    "Please provide at least 5 characters of feedback when requesting revision or rejecting."
+  );
 
 export async function PATCH(request: Request, { params }: { params: Promise<{ submissionId: string }> }) {
   if (!isTrustedOrigin(request)) return NextResponse.json({ error: "Untrusted request origin." }, { status: 403 });
@@ -53,7 +58,12 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ su
     const studentId = String(submission.studentId);
     const enrollmentId = String(submission.enrollmentId);
 
-    // Section 6 & 7: Check payment verification before final approval
+    const reviewedAt = new Date().toISOString();
+    const effectiveFeedback =
+      input.data.feedback.trim() ||
+      "Approved by Crewline admin. Project and payment verified.";
+
+    // Auto-verify payment upon final admin approval (admin checks Google Form responses and clicks Approve)
     if (input.data.decision === "approved" && paymentsTable) {
       const paymentRows = await service.tablesDB.listRows({
         databaseId: service.databaseId,
@@ -65,14 +75,20 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ su
         ],
       });
       const payment = paymentRows.rows[0];
-      if (payment && !["verified", "waived", "not_applicable"].includes(String(payment.status))) {
-        return NextResponse.json({
-          error: `Payment is currently '${String(payment.status).replaceAll("_", " ")}'. Please verify the student's payment before approving the project.`,
-        }, { status: 400 });
+      if (payment && !["verified", "waived"].includes(String(payment.status))) {
+        await service.tablesDB.updateRow({
+          databaseId: service.databaseId,
+          tableId: paymentsTable,
+          rowId: payment.$id,
+          data: {
+            status: "verified",
+            verifiedBy: admin.$id,
+            verifiedAt: reviewedAt,
+            verificationReason: "Verified by admin on final approval",
+          },
+        });
       }
     }
-
-    const reviewedAt = new Date().toISOString();
 
     // 1. Record review decision in reviews table
     await service.tablesDB.createRow({
@@ -82,7 +98,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ su
       data: {
         submissionId,
         reviewerId: admin.$id,
-        feedback: input.data.feedback,
+        feedback: effectiveFeedback,
         score: input.data.score === "" ? null : input.data.score,
         decision: input.data.decision,
         reviewedAt,
@@ -133,7 +149,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ su
         submissionId,
         {
           score: input.data.score === "" ? null : input.data.score,
-          feedback: input.data.feedback,
+          feedback: effectiveFeedback,
           enrollmentId,
           studentId,
           generatedCertificates,
@@ -147,7 +163,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ su
       subject: `Crewline project review update: ${input.data.decision.replaceAll("_", " ")}`,
       html: submissionReviewEmail({
         decision: input.data.decision,
-        feedback: input.data.feedback,
+        feedback: effectiveFeedback,
         certificatesIssued: generatedCertificates,
       }),
     });

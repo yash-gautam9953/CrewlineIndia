@@ -10,7 +10,7 @@ import { writeAuditLog } from "@/lib/documents/document-service";
 
 const updateSchema = z.object({
   title: z.string().trim().min(3).max(180).optional(),
-  instructions: z.string().trim().min(10).max(12000).optional(),
+  instructions: z.string().trim().max(12000).optional(),
   sequence: z.coerce.number().int().min(1).max(500).optional(),
   dueAt: z.union([z.iso.datetime(), z.literal(""), z.null()]).optional(),
   maxScore: z.union([z.literal(""), z.null(), z.coerce.number().int().min(0).max(10000)]).optional(),
@@ -52,7 +52,17 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ ta
 
     const patch: Record<string, unknown> = {};
     if (input.data.title !== undefined) patch.title = input.data.title;
-    if (input.data.instructions !== undefined) patch.instructions = input.data.instructions;
+    if (input.data.instructions !== undefined) {
+      if (!input.data.instructions && !existing.resourceFileId) {
+        return NextResponse.json({ error: "Enter at least 10 characters of instructions when no PDF is attached." }, { status: 400 });
+      }
+      if (input.data.instructions && input.data.instructions.length < 10 && !existing.resourceFileId) {
+        return NextResponse.json({ error: "Instructions must be at least 10 characters when no PDF is attached." }, { status: 400 });
+      }
+      patch.instructions =
+        input.data.instructions ||
+        "All internship tasks and deliverables are included in the attached Task PDF. Download the PDF to review the tasks and submit your work.";
+    }
     if (input.data.sequence !== undefined) patch.sequence = input.data.sequence;
     if (input.data.dueAt !== undefined) patch.dueAt = input.data.dueAt || null;
     if (input.data.maxScore !== undefined) patch.maxScore = input.data.maxScore === "" ? null : input.data.maxScore;

@@ -56,8 +56,8 @@ const projCss = `
     min-height: 22mm;
     margin: 0 10mm 2mm;
   }
-  .brand { position: absolute; left: 50%; display: flex; align-items: center; transform: translateX(-50%); }
-  .brand img { display: block; width: 86mm; max-height: 20mm; object-fit: contain; }
+  .header .brand { position: absolute; left: 50%; display: flex; align-items: center; transform: translateX(-50%); border-bottom: 0; padding: 0; gap: 0; }
+  .header .brand img { display: block; width: 86mm; max-height: 20mm; object-fit: contain; }
   .meta {
     min-width: 66mm;
     padding: 0 0 0 8mm;
@@ -76,7 +76,7 @@ const projCss = `
   }
   .meta-row:last-child { margin-bottom: 0; }
   .meta svg { width: 5mm; height: 5mm; flex: none; stroke: var(--navy); }
-  .heading { position: relative; max-width: 224mm; margin: 4mm auto 0; text-align: center; }
+  .heading { position: relative; max-width: 224mm; margin: 6mm auto 0; text-align: center; }
   .eyebrow {
     display: flex;
     align-items: center;
@@ -108,13 +108,13 @@ const projCss = `
   .title-rule {
     width: 47mm;
     height: 1.4mm;
-    margin: 3.5mm auto 3mm;
+    margin: 4.5mm auto 3.5mm;
     border-radius: 5mm;
     background: linear-gradient(90deg, var(--blue), var(--purple));
   }
   .certify { margin: 0 0 2mm; color: var(--navy); font-size: 15pt; font-weight: 700; }
   .student-name {
-    margin: 0.5mm auto 1.5mm;
+    margin: 1mm auto 2mm;
     max-width: 182mm;
     color: #111c4d;
     font-family: Georgia, "Times New Roman", serif;
@@ -124,13 +124,13 @@ const projCss = `
     line-height: 1.15;
     overflow-wrap: anywhere;
   }
-  .name-rule { width: 164mm; max-width: 82%; margin: 0 auto 2.5mm; border-top: .35mm solid #aab7dc; }
+  .name-rule { width: 164mm; max-width: 82%; margin: 0 auto 3.5mm; border-top: .35mm solid #aab7dc; }
   .copy {
-    max-width: 195mm;
-    margin: 2mm auto 0;
+    max-width: 216mm;
+    margin: 2.5mm auto 0;
     color: var(--ink);
-    font-size: 13pt;
-    line-height: 1.2;
+    font-size: 13.5pt;
+    line-height: 1.22;
     text-align: center;
   }
   .copy p { margin: 0 0 1.2mm; }
@@ -205,23 +205,26 @@ const projCss = `
     justify-content: space-between;
     gap: 2mm;
     width: 100%;
-    padding: 1.4mm 3mm;
+    padding: 1.4mm 2.8mm;
     border-radius: 4mm;
     background: #e4edff;
     color: #263e7a;
-    font-size: 11.5pt;
+    font-size: 9.8pt;
     font-weight: 700;
-    overflow-wrap: anywhere;
+    white-space: nowrap;
+    overflow: hidden;
   }
   .verify-url svg { width: 4mm; height: 4mm; flex: none; stroke: #0879f9; }
-  .signature {
+  .verification .signature {
+    display: block;
     justify-self: end;
     width: 64mm;
+    margin-top: 0;
     padding-top: 1mm;
     text-align: center;
     color: var(--navy);
   }
-  .signature img { display: block; width: 41mm; height: 12mm; margin: 0 auto 1mm; object-fit: contain; }
+  .verification .signature img { display: block; width: 41mm; height: 12mm; margin: 0 auto 1mm; max-width: none; max-height: none; object-fit: contain; object-position: center; }
   .signature-line { width: 62mm; margin: 0 auto 1.5mm; border-top: .35mm solid #596b9c; }
   .sign-name { margin-bottom: .5mm; font-size: 12pt; font-weight: 800; }
   .sign-role { color: #4c5872; font-size: 11.5pt; line-height: 1.3; }
@@ -234,7 +237,7 @@ export function renderProjectCertificate(snapshot: DocumentSnapshot, assets: Doc
   const domain = safeText(rawDomain);
   const redundant = isDomainRedundant(title, rawDomain);
   const programDomainSnippet = redundant
-    ? `as part of the <strong>${title}</strong><br />at <strong>Crewline</strong>.`
+    ? `as part of the <strong>${title}</strong> program<br />at <strong>Crewline</strong>.`
     : `as part of the <strong>${title}</strong> in the <strong>${domain}</strong> Domain<br />at <strong>Crewline</strong>.`;
 
   const content = `
@@ -299,6 +302,23 @@ export function renderProjectCertificate(snapshot: DocumentSnapshot, assets: Doc
       <section class="heading">
         <p class="eyebrow">
           <svg class="laurel" viewBox="0 0 38 52" fill="none" aria-hidden="true">
+            <path d="M 12 47 C 6 32 10 16 26 5" stroke="#3874ff" stroke-width="2.2" stroke-linecap="round"/>
+            <path d="M 0 0 C -2.4 -2.8 -2.8 -6.5 0 -10 C 2.8 -6.5 2.4 -2.8 0 0 Z" fill="#3874ff" transform="translate(26,5) rotate(35) scale(1)"/>
+            <path d="M 0 0 C -2.4 -2.8 -2.8 -6.5 0 -10 C 2.8 -6.5 2.4 -2.8 0 0 Z" fill="#3874ff" transform="translate(9,44) rotate(-60) scale(0.95)"/>
+            <path d="M 0 0 C -2.4 -2.8 -2.8 -6.5 0 -10 C 2.8 -6.5 2.4 -2.8 0 0 Z" fill="#3874ff" transform="translate(12,45) rotate(20) scale(0.95)"/>
+            <path d="M 0 0 C -2.4 -2.8 -2.8 -6.5 0 -10 C 2.8 -6.5 2.4 -2.8 0 0 Z" fill="#3874ff" transform="translate(7.5,36) rotate(-50) scale(1)"/>
+            <path d="M 0 0 C -2.4 -2.8 -2.8 -6.5 0 -10 C 2.8 -6.5 2.4 -2.8 0 0 Z" fill="#3874ff" transform="translate(10.5,37) rotate(25) scale(1)"/>
+            <path d="M 0 0 C -2.4 -2.8 -2.8 -6.5 0 -10 C 2.8 -6.5 2.4 -2.8 0 0 Z" fill="#3874ff" transform="translate(8,28) rotate(-40) scale(1)"/>
+            <path d="M 0 0 C -2.4 -2.8 -2.8 -6.5 0 -10 C 2.8 -6.5 2.4 -2.8 0 0 Z" fill="#3874ff" transform="translate(11,29) rotate(30) scale(1)"/>
+            <path d="M 0 0 C -2.4 -2.8 -2.8 -6.5 0 -10 C 2.8 -6.5 2.4 -2.8 0 0 Z" fill="#3874ff" transform="translate(11,20) rotate(-30) scale(1)"/>
+            <path d="M 0 0 C -2.4 -2.8 -2.8 -6.5 0 -10 C 2.8 -6.5 2.4 -2.8 0 0 Z" fill="#3874ff" transform="translate(14,21) rotate(38) scale(1)"/>
+            <path d="M 0 0 C -2.4 -2.8 -2.8 -6.5 0 -10 C 2.8 -6.5 2.4 -2.8 0 0 Z" fill="#3874ff" transform="translate(16,13) rotate(-18) scale(1)"/>
+            <path d="M 0 0 C -2.4 -2.8 -2.8 -6.5 0 -10 C 2.8 -6.5 2.4 -2.8 0 0 Z" fill="#3874ff" transform="translate(19,14) rotate(48) scale(1)"/>
+            <path d="M 0 0 C -2.4 -2.8 -2.8 -6.5 0 -10 C 2.8 -6.5 2.4 -2.8 0 0 Z" fill="#3874ff" transform="translate(22,7.5) rotate(-8) scale(0.95)"/>
+            <path d="M 0 0 C -2.4 -2.8 -2.8 -6.5 0 -10 C 2.8 -6.5 2.4 -2.8 0 0 Z" fill="#3874ff" transform="translate(25,8.5) rotate(55) scale(0.95)"/>
+          </svg>
+          CERTIFICATE OF
+          <svg class="laurel" viewBox="0 0 38 52" fill="none" aria-hidden="true" style="transform: scaleX(-1);">
             <path d="M 12 47 C 6 32 10 16 26 5" stroke="#3874ff" stroke-width="2.2" stroke-linecap="round"/>
             <path d="M 0 0 C -2.4 -2.8 -2.8 -6.5 0 -10 C 2.8 -6.5 2.4 -2.8 0 0 Z" fill="#3874ff" transform="translate(26,5) rotate(35) scale(1)"/>
             <path d="M 0 0 C -2.4 -2.8 -2.8 -6.5 0 -10 C 2.8 -6.5 2.4 -2.8 0 0 Z" fill="#3874ff" transform="translate(9,44) rotate(-60) scale(0.95)"/>

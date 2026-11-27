@@ -90,7 +90,7 @@ export function AdminPaymentSettings() {
       </div>
 
       <p className="mt-3 text-sm text-slate-600">
-        Paste the Google Form URL that contains your UPI QR scanner. Students open this link inside their internship workspace, complete the UPI payment, and submit their verification request to this admin panel.
+        Paste the single Google Form URL containing your UPI QR scanner. All students will open this same form link directly when they click Pay Now in their internship workspace.
       </p>
 
       <form onSubmit={submit} className="mt-5 grid gap-4 sm:grid-cols-2">

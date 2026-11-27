@@ -146,8 +146,8 @@ export function AdminTaskActions({
             <input name="sequence" type="number" min={1} max={500} required defaultValue={sequence} className={input} />
           </label>
           <label className="text-xs font-semibold text-slate-600 sm:col-span-2">
-            Instructions
-            <textarea name="instructions" required minLength={10} maxLength={12000} rows={4} defaultValue={instructions} className={`${input} h-auto py-2`} />
+            Instructions <span className="font-normal text-slate-400">(optional if PDF is attached)</span>
+            <textarea name="instructions" maxLength={12000} rows={4} defaultValue={instructions} className={`${input} h-auto py-2`} />
           </label>
           <label className="text-xs font-semibold text-slate-600">
             Deadline

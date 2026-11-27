@@ -56,7 +56,11 @@ export async function storeIssuedDocument(snapshot: DocumentSnapshot, html: stri
 
   const pdf = await generatePdf(html, snapshot.documentType !== "offer");
   const fileId = ID.unique();
-  const file = await config.storage.createFile({ bucketId: config.bucketId, fileId, file: InputFile.fromBuffer(pdf, `${snapshot.documentId}.pdf`), permissions: [Permission.read(Role.user(snapshot.studentId))] });
+  const readPermissions =
+    snapshot.studentId && !snapshot.studentId.startsWith("custom:")
+      ? [Permission.read(Role.user(snapshot.studentId))]
+      : [];
+  const file = await config.storage.createFile({ bucketId: config.bucketId, fileId, file: InputFile.fromBuffer(pdf, `${snapshot.documentId}.pdf`), permissions: readPermissions });
   try {
     const row = await config.tablesDB.createRow({
       databaseId: config.databaseId,
@@ -85,7 +89,7 @@ export async function storeIssuedDocument(snapshot: DocumentSnapshot, html: stri
         revocationReason: null,
         reissuedFrom: snapshot.reissuedFrom || null,
       },
-      permissions: [Permission.read(Role.user(snapshot.studentId))],
+      permissions: readPermissions,
     });
     await writeAuditLog(config, issuedBy, "document.issued", snapshot.documentId, { type: snapshot.documentType, studentId: snapshot.studentId, sourceId: snapshot.sourceId, reissuedFrom: snapshot.reissuedFrom || undefined, reissueReason: snapshot.reissueReason || undefined });
     return row;

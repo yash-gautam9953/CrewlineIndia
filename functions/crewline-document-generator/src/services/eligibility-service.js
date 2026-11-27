@@ -216,10 +216,13 @@ export class EligibilityService {
 
     const approvedAt = review?.reviewedAt || submission.reviewedAt || submission.$updatedAt || new Date().toISOString();
 
+    const fallbackProjectTitle = `${String(internship.domain || internship.title || "Internship")} Capstone Project`;
+    const submittedProjectTitle = typeof submission.projectTitle === "string" ? submission.projectTitle.trim() : "";
+
     return {
       studentId,
       studentName,
-      projectTitle: String(task.title || "Project"),
+      projectTitle: submittedProjectTitle || fallbackProjectTitle,
       documentTitle: String(internship.title || "Internship"),
       domain: String(internship.domain || "Technology"),
       internshipId,

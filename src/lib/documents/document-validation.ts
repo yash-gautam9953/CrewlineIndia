@@ -120,7 +120,7 @@ export async function prepareDocument(type: DocumentType, sourceId: string, docu
   if (!submissionsTable || !tasksTable || !enrollmentsTable || !internshipTable) throw new Error("Project certificate tables are not configured.");
   const submission = await service.tablesDB.getRow({ databaseId: service.databaseId, tableId: submissionsTable, rowId: sourceId }) as Record<string, unknown>;
   if (submission.status !== "approved") throw new Error("Project certificates are available only for approved project submissions.");
-  const [task, enrollment] = await Promise.all([
+  const [, enrollment] = await Promise.all([
     service.tablesDB.getRow({ databaseId: service.databaseId, tableId: tasksTable, rowId: String(submission.taskId) }),
     service.tablesDB.getRow({ databaseId: service.databaseId, tableId: enrollmentsTable, rowId: String(submission.enrollmentId) }),
   ]);
@@ -129,7 +129,9 @@ export async function prepareDocument(type: DocumentType, sourceId: string, docu
   const reviewsTable = tables.reviews;
   const approvalRows = reviewsTable ? await service.tablesDB.listRows({ databaseId: service.databaseId, tableId: reviewsTable, queries: [Query.equal("submissionId", sourceId), Query.equal("decision", "approved"), Query.orderDesc("reviewedAt"), Query.limit(1)] }) : { rows: [] };
   if (!approvalRows.rows.length) throw new Error("An approved mentor review must be recorded before the project certificate can be issued.");
-  const projectTitle = String((task as Record<string, unknown>).title ?? "Project");
+  const fallbackProjectTitle = `${String(internship.domain || internship.title || "Internship")} Capstone Project`;
+  const submittedProjectTitle = typeof submission.projectTitle === "string" ? submission.projectTitle.trim() : "";
+  const projectTitle = submittedProjectTitle || fallbackProjectTitle;
   const approvedAt = (approvalRows.rows[0] as Record<string, unknown>).reviewedAt;
   const snapshot = { ...base, studentId: String(submission.studentId), studentName: await studentName(String(submission.studentId)), documentTitle: String(internship.title ?? "Internship"), projectTitle, domain: String(internship.domain ?? ""), duration: "", sourceId, internshipId: String(enrollment.internshipId), completionDate: typeof approvedAt === "string" ? approvedAt : now };
   snapshot.verificationUrl = `https://crewline.me/verify/${encodeURIComponent(documentId)}`;

@@ -7,7 +7,6 @@ import { getAdminUser } from "@/lib/authz";
 import { createPrivilegedAppwriteClient } from "@/lib/appwrite/server";
 import { getAppwriteResources } from "@/lib/appwrite/resources";
 import { SubmissionReviewForm } from "@/components/submission-review-form";
-import { AdminPaymentReviewForm } from "@/components/admin-payment-review-form";
 
 export const metadata: Metadata = { title: "Project Submissions", robots: { index: false, follow: false } };
 type Filters = { domain?: string; status?: string; q?: string; late?: string; from?: string; to?: string; page?: string };
@@ -192,56 +191,28 @@ export default async function AdminSubmissionsPage({ searchParams }: { searchPar
                           )}
                         </div>
 
-                        {/* Payment Verification Section */}
-                        <div className="mt-6 rounded-xl border border-slate-200 bg-slate-50/70 p-4 dark:border-slate-800 dark:bg-[#1C2940]">
-                          <div className="flex flex-wrap items-center justify-between gap-2">
-                            <div className="flex items-center gap-2">
-                              <FileCheck size={17} className={paymentVerified ? "text-emerald-600 dark:text-emerald-400" : "text-amber-600 dark:text-amber-400"} />
-                              <h4 className="text-xs font-bold uppercase tracking-wider text-navy dark:text-[#F1F5FB]">Payment Verification Check</h4>
-                            </div>
-                            <span className={`rounded-full px-2.5 py-0.5 text-xs font-bold ${paymentVerified ? "bg-emerald-100 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300" : "bg-amber-100 text-amber-800 dark:bg-amber-950/60 dark:text-amber-300"}`}>
-                              {paymentVerified ? "Payment Verified" : "Verification Required"}
+                        {/* Payment Info & Final Admin Approval */}
+                        <div className="mt-5 flex flex-wrap items-center justify-between gap-2 rounded-xl border border-slate-200 bg-slate-50/70 px-4 py-3 text-xs dark:border-slate-800 dark:bg-[#1C2940]">
+                          <div className="flex items-center gap-2">
+                            <FileCheck size={16} className={paymentVerified ? "text-emerald-600 dark:text-emerald-400" : "text-amber-600 dark:text-amber-400"} />
+                            <span className="font-semibold text-navy dark:text-[#F1F5FB]">
+                              Payment Status: {paymentVerified ? "Verified" : "Pending check (Google Form)"}
                             </span>
+                            {payment?.amountDue ? (
+                              <span className="text-slate-500 dark:text-[#A8B5C8]">
+                                · {String(payment.currency ?? "INR")} {String(payment.amountDue)}
+                              </span>
+                            ) : null}
                           </div>
-
-                          {payment ? (
-                            <div className="mt-2 text-xs text-slate-600 dark:text-[#A8B5C8]">
-                              <p>
-                                <strong>Amount:</strong> {payment.amountDue ? `${payment.currency} ${payment.amountDue}` : "No disclosed amount"} · <strong>Status:</strong> {paymentStatus.replaceAll("_", " ")}
-                              </p>
-                              {payment.transactionReference && (
-                                <p className="mt-1 font-mono text-slate-700 dark:text-slate-300"><strong>Transaction Reference:</strong> {String(payment.transactionReference)}</p>
-                              )}
-                              {payment.proofFileId && (
-                                <p className="mt-1">
-                                  <a className="font-semibold text-brand underline dark:text-blue-400" href={`/api/payments/${payment.$id}/proof`}>Download submitted payment proof</a>
-                                </p>
-                              )}
-                              {payment.verificationReason && (
-                                <p className="mt-1 text-amber-900 dark:text-amber-300"><strong>Review Note:</strong> {String(payment.verificationReason)}</p>
-                              )}
-                              {payment.verifiedBy && (
-                                <p className="mt-1 text-slate-400">Verified by {String(payment.verifiedBy)} at {new Date(String(payment.verifiedAt)).toLocaleString("en-IN")}</p>
-                              )}
-
-                              {["pending", "submitted"].includes(paymentStatus) && (
-                                <div className="mt-3 pt-3 border-t border-slate-200 dark:border-slate-700">
-                                  <p className="text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">Verify or Reject Payment:</p>
-                                  <AdminPaymentReviewForm paymentId={String(payment.$id)} status={paymentStatus} />
-                                </div>
-                              )}
-                            </div>
-                          ) : (
-                            <p className="mt-2 text-xs text-emerald-700 dark:text-emerald-400">No payment requirement disclosed for this enrollment.</p>
-                          )}
+                          <Link href="/admin/payments" className="font-semibold text-brand underline dark:text-blue-400">
+                            Payment settings
+                          </Link>
                         </div>
 
-                        {/* Final Admin Approval & Certificate Issuance */}
                         <SubmissionReviewForm
                           submissionId={row.$id}
                           status={String(item.status)}
                           maxScore={typeof task?.maxScore === "number" ? task.maxScore : undefined}
-                          paymentVerified={paymentVerified}
                         />
                       </article>
                     );

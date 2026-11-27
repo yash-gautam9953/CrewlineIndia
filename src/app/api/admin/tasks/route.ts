@@ -10,12 +10,12 @@ import { isTrustedOrigin } from "@/lib/security";
 
 const schema = z.object({
   internshipId: z.string().min(1).max(64),
-  title: z.string().trim().min(3).max(180),
-  instructions: z.string().trim().min(10).max(12000),
-  sequence: z.coerce.number().int().min(1).max(500),
+  title: z.string().trim().max(180).optional().default(""),
+  instructions: z.string().trim().max(12000).optional().default(""),
+  sequence: z.union([z.literal(""), z.coerce.number().int().min(1).max(500)]).optional().default(""),
   dueAt: z.union([z.iso.datetime(), z.literal("")]).optional().default(""),
   maxScore: z.union([z.literal(""), z.coerce.number().int().min(0).max(10000)]).optional().default(""),
-  assignmentMode: z.enum(["all_enrolled", "selected_students"]),
+  assignmentMode: z.enum(["all_enrolled", "selected_students"]).optional().default("all_enrolled"),
 });
 
 export const runtime = "nodejs";
@@ -27,14 +27,23 @@ export async function POST(request: Request) {
   if (!admin) return NextResponse.json({ error: "Administrator access required." }, { status: 403 });
   const form = await request.formData();
   const input = schema.safeParse({
-    internshipId: form.get("internshipId"), title: form.get("title"), instructions: form.get("instructions"), sequence: form.get("sequence"), dueAt: form.get("dueAt"), maxScore: form.get("maxScore"), assignmentMode: form.get("assignmentMode") || "all_enrolled",
+    internshipId: form.get("internshipId"),
+    title: form.get("title") ?? "",
+    instructions: form.get("instructions") ?? "",
+    sequence: form.get("sequence") ?? "",
+    dueAt: form.get("dueAt") ?? "",
+    maxScore: form.get("maxScore") ?? "",
+    assignmentMode: form.get("assignmentMode") || "all_enrolled",
   });
-  const isMandatory = form.get("isMandatory") === "on";
-  const isPublished = form.get("isPublished") === "on";
+  const isMandatory = form.get("isMandatory") !== "off";
+  const isPublished = form.get("isPublished") !== "off";
   const assignedStudentIds = [...new Set(form.getAll("assignedStudentIds").filter((value): value is string => typeof value === "string" && value.length <= 64))];
   const file = form.get("resource");
   const resource = file instanceof File && file.size > 0 ? file : null;
-  if (!input.success) return NextResponse.json({ error: "Provide a task title, instructions, and valid sequence number." }, { status: 400 });
+  if (!input.success) return NextResponse.json({ error: "Invalid task upload request." }, { status: 400 });
+  if (!resource && input.data.instructions.length < 10) {
+    return NextResponse.json({ error: "Please select a Task PDF to upload." }, { status: 400 });
+  }
   if (input.data.assignmentMode === "selected_students" && !assignedStudentIds.length) return NextResponse.json({ error: "Select at least one active student or assign the task to all enrollees." }, { status: 400 });
   if (assignedStudentIds.length > 100) return NextResponse.json({ error: "Select no more than 100 students per task batch." }, { status: 400 });
   let resourceBytes: Buffer | null = null;
@@ -59,9 +68,13 @@ export async function POST(request: Request) {
   let resourceVersionRowId = "";
   const createdAssignmentIds: string[] = [];
   try {
-    await service.tablesDB.getRow({ databaseId: service.databaseId, tableId: internshipsTable, rowId: input.data.internshipId });
-    const duplicate = await service.tablesDB.listRows({ databaseId: service.databaseId, tableId: taskTable, queries: [Query.equal("internshipId", input.data.internshipId), Query.equal("sequence", input.data.sequence), Query.limit(1)] });
-    if (duplicate.total) return NextResponse.json({ error: "That sequence number is already used for this internship." }, { status: 409 });
+    const internshipRow = await service.tablesDB.getRow({ databaseId: service.databaseId, tableId: internshipsTable, rowId: input.data.internshipId }) as Record<string, unknown>;
+    const existingTasks = await service.tablesDB.listRows({ databaseId: service.databaseId, tableId: taskTable, queries: [Query.equal("internshipId", input.data.internshipId), Query.orderDesc("sequence"), Query.limit(100)] });
+    const maxSequence = existingTasks.rows.reduce((max, row) => Math.max(max, Number((row as Record<string, unknown>).sequence ?? 0)), 0);
+    const resolvedSequence = input.data.sequence === "" ? maxSequence + 1 : input.data.sequence;
+    if (input.data.sequence !== "" && existingTasks.rows.some((row) => Number((row as Record<string, unknown>).sequence) === resolvedSequence)) {
+      return NextResponse.json({ error: "That sequence number is already used for this internship." }, { status: 409 });
+    }
 
     let assignees: string[] = [];
     if (input.data.assignmentMode === "selected_students") {
@@ -79,8 +92,15 @@ export async function POST(request: Request) {
       resourceFileId = uploaded.$id;
     }
 
+    const derivedTitle =
+      input.data.title ||
+      `${String(internshipRow.title ?? "Internship").trim()} Task Brief`.slice(0, 180);
+    const storedInstructions =
+      input.data.instructions ||
+      "Open the attached Task PDF below to view all tasks, instructions, and requirements.";
+
     await service.tablesDB.createRow({ databaseId: service.databaseId, tableId: taskTable, rowId: taskId, data: {
-      internshipId: input.data.internshipId, title: input.data.title, instructions: input.data.instructions, sequence: input.data.sequence, isMandatory, dueAt: input.data.dueAt || null, maxScore: input.data.maxScore === "" ? null : input.data.maxScore, isPublished, assignmentMode: input.data.assignmentMode, resourceFileId: resourceFileId || null, resourceFileName: resource ? resource.name.slice(0, 255) : null, resourceVersion: resourceFileId ? 1 : null,
+      internshipId: input.data.internshipId, title: derivedTitle, instructions: storedInstructions, sequence: resolvedSequence, isMandatory, dueAt: input.data.dueAt || null, maxScore: input.data.maxScore === "" ? null : input.data.maxScore, isPublished, assignmentMode: input.data.assignmentMode, resourceFileId: resourceFileId || null, resourceFileName: resource ? resource.name.slice(0, 255) : null, resourceVersion: resourceFileId ? 1 : null,
     } });
 
     if (resourceFileId && resource && resourcesTable) {

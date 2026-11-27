@@ -56,8 +56,8 @@ const certCss = `
     min-height: 22mm;
     margin: 0 10mm 2mm;
   }
-  .brand { position: absolute; left: 50%; display: flex; align-items: center; transform: translateX(-50%); }
-  .brand img { display: block; width: 86mm; max-height: 20mm; object-fit: contain; }
+  .header .brand { position: absolute; left: 50%; display: flex; align-items: center; transform: translateX(-50%); border-bottom: 0; padding: 0; gap: 0; }
+  .header .brand img { display: block; width: 86mm; max-height: 20mm; object-fit: contain; }
   .meta {
     min-width: 66mm;
     padding: 0 0 0 8mm;
@@ -195,23 +195,26 @@ const certCss = `
     justify-content: space-between;
     gap: 2mm;
     width: 100%;
-    padding: 1.4mm 3mm;
+    padding: 1.4mm 2.8mm;
     border-radius: 4mm;
     background: #e4edff;
     color: #263e7a;
-    font-size: 11.5pt;
+    font-size: 9.8pt;
     font-weight: 700;
-    overflow-wrap: anywhere;
+    white-space: nowrap;
+    overflow: hidden;
   }
   .verify-url svg { width: 4mm; height: 4mm; flex: none; stroke: #0879f9; }
-  .signature {
+  .verification .signature {
+    display: block;
     justify-self: end;
     width: 64mm;
+    margin-top: 0;
     padding-top: 1mm;
     text-align: center;
     color: var(--navy);
   }
-  .signature img { display: block; width: 41mm; height: 12mm; margin: 0 auto 1mm; object-fit: contain; }
+  .verification .signature img { display: block; width: 41mm; height: 12mm; margin: 0 auto 1mm; max-width: none; max-height: none; object-fit: contain; object-position: center; }
   .signature-line { width: 62mm; margin: 0 auto 1.5mm; border-top: .35mm solid #596b9c; }
   .sign-name { margin-bottom: .5mm; font-size: 12pt; font-weight: 800; }
   .sign-role { color: #4c5872; font-size: 11.5pt; line-height: 1.3; }

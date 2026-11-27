@@ -29,13 +29,17 @@ function snapshot(documentType: DocumentType): DocumentSnapshot {
   };
 }
 
-test("document IDs follow the correct type-specific format and have six secure suffix characters", () => {
+test("document IDs follow the correct compact CW format with 5 secure suffix characters", () => {
   const patterns: Record<DocumentType, RegExp> = {
-    offer: /^CW-OFFER-2026-[A-Z0-9]{6}$/,
-    internship_completion: /^CW-INT-2026-[A-Z0-9]{6}$/,
-    project_completion: /^CW-PROJ-2026-[A-Z0-9]{6}$/,
+    offer: /^CW-\d{2}O-[A-Z0-9]{5}$/,
+    internship_completion: /^CW-\d{2}I-[A-Z0-9]{5}$/,
+    project_completion: /^CW-\d{2}P-[A-Z0-9]{5}$/,
   };
-  for (const type of types) assert.match(generateDocumentId(type, new Date("2026-11-18T00:00:00Z")), patterns[type]);
+  for (const type of types) {
+    const id = generateDocumentId(type, new Date("2026-11-18T00:00:00Z"));
+    assert.match(id, patterns[type]);
+    assert.equal(id.length, 12);
+  }
 });
 
 test("an issuance event key is stable, while an explicitly linked reissue gets its own unique event key", () => {
@@ -55,6 +59,8 @@ for (const type of types) {
     if (type === "offer") assert.match(html, /INTERNSHIP OFFER LETTER/);
     else {
       assert.match(html, /data:image\/png;base64/);
+      assert.match(html, /CERTIFICATE OF/);
+      assert.match(html, /scaleX\(-1\)/);
       assert.match(html, new RegExp(input.documentId));
       assert.match(html, /\/verify\//);
     }

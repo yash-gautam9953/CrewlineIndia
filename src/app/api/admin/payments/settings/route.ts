@@ -44,7 +44,7 @@ export async function POST(request: Request) {
     await savePaymentSettings(admin.$id, {
       googleFormUrl: parsed.data.googleFormUrl.trim(),
       feeAmount,
-      instructions: parsed.data.instructions.trim() || "Scan the UPI QR inside the Google Form, complete the payment, and submit your UPI Transaction ID / UTR below for admin verification.",
+      instructions: parsed.data.instructions.trim() || "Click Pay Now to open the Google Form, scan the UPI QR code to pay, and submit the form. Admin will verify payment and approve your certificates.",
     });
     return NextResponse.json({ saved: true });
   } catch (error) {
