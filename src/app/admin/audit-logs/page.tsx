@@ -46,14 +46,14 @@ export default async function AdminAuditLogsPage({ searchParams }: { searchParam
         <h1 className="mt-2 text-3xl font-bold text-navy">Audit Logs</h1>
         <p className="mt-2 text-sm text-slate-600">{logs.total} recorded events · page {page} of {totalPages}</p>
 
-        <form className="mt-6 flex flex-wrap gap-3 rounded-xl border border-slate-200 bg-white p-4">
+        <form className="mt-6 flex flex-col gap-3 rounded-xl border border-slate-200 bg-white p-4 sm:flex-row">
           <input
             name="action"
             defaultValue={params.action}
             placeholder="Filter action prefix (e.g. document., payment.)"
             className="focus-ring min-h-10 flex-1 rounded-lg border border-slate-200 bg-white px-3 text-sm text-navy"
           />
-          <button className="admin-btn-primary min-h-10 rounded-lg bg-[#1769D2] px-4 text-sm font-semibold text-white hover:bg-[#123B70]">
+          <button className="admin-btn-primary min-h-10 rounded-lg bg-[#1769D2] px-5 text-sm font-semibold text-white hover:bg-[#123B70]">
             Filter
           </button>
         </form>
@@ -72,12 +72,12 @@ export default async function AdminAuditLogsPage({ searchParams }: { searchParam
                 const log = row as typeof row & Record<string, unknown>;
                 return (
                   <div key={row.$id} className="grid gap-2 px-5 py-4 text-sm md:grid-cols-[1.1fr_.9fr_1fr_1.2fr_1fr] md:items-center md:gap-4">
-                    <span className="font-mono text-xs font-bold text-navy">{String(log.action ?? "")}</span>
-                    <span className="truncate font-mono text-xs text-slate-500">{String(log.actorId ?? "system")}</span>
-                    <span className="truncate text-xs text-slate-600">
+                    <span className="min-w-0 break-all font-mono text-xs font-bold text-navy">{String(log.action ?? "")}</span>
+                    <span className="min-w-0 break-all font-mono text-xs text-slate-500 md:truncate">{String(log.actorId ?? "system")}</span>
+                    <span className="min-w-0 break-all text-xs text-slate-600 md:truncate">
                       {String(log.resourceType ?? "")} · <span className="font-mono">{String(log.resourceId ?? "")}</span>
                     </span>
-                    <span className="truncate font-mono text-xs text-slate-500">{String(log.details ?? "")}</span>
+                    <span className="min-w-0 break-words font-mono text-xs text-slate-500 md:truncate">{String(log.details ?? "")}</span>
                     <span className="text-xs text-slate-500">
                       {log.occurredAt ? new Date(String(log.occurredAt)).toLocaleString("en-IN", { timeZone: "Asia/Kolkata", dateStyle: "medium", timeStyle: "short" }) : "—"}
                     </span>
@@ -90,7 +90,7 @@ export default async function AdminAuditLogsPage({ searchParams }: { searchParam
           )}
         </div>
 
-        <div className="mt-4 flex items-center justify-between">
+        <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
           <span className="text-xs text-slate-500">Showing {logs.rows.length} of {logs.total}</span>
           <div className="flex gap-2">
             <Link

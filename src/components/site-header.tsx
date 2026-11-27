@@ -26,7 +26,7 @@ export function SiteHeader({ loggedIn, admin }: { loggedIn: boolean; admin: bool
 
   return (
     <header className="sticky top-0 z-50 border-b border-slate-200/80 bg-white/95 backdrop-blur-xl">
-      <div className="mx-auto grid h-[88px] max-w-7xl grid-cols-[auto_1fr_auto] items-center gap-4 px-5 sm:px-8">
+      <div className="mx-auto grid h-[72px] max-w-7xl grid-cols-[auto_1fr_auto] items-center gap-4 px-4 sm:px-8 md:h-[88px]">
         <Link href="/" aria-label="Crewline home" className="focus-ring flex items-center rounded-md">
           <Image
             src="/brand-logo.png"
@@ -34,7 +34,7 @@ export function SiteHeader({ loggedIn, admin }: { loggedIn: boolean; admin: bool
             width={320}
             height={107}
             priority
-            className="h-11 w-auto object-contain sm:h-13"
+            className="h-10 w-auto object-contain sm:h-12 md:h-13"
           />
         </Link>
 

@@ -41,13 +41,13 @@ export default async function AccountPage({ searchParams }: { searchParams: Prom
   ];
 
   return (
-    <main className="min-h-[70vh] bg-[#F7F9FC] px-5 py-10 sm:px-8 sm:py-14">
+    <main className="min-h-[70vh] bg-[#F7F9FC] px-4 py-8 sm:px-8 sm:py-12">
       <EnrollmentCelebrationModal show={params.enrolled === "1"} />
       <div className="mx-auto max-w-7xl">
         <header className="flex flex-col justify-between gap-6 sm:flex-row sm:items-end">
-          <div>
+          <div className="min-w-0">
             <p className="text-xs font-bold uppercase tracking-[.2em] text-[#1769D2]">Student workspace</p>
-            <h1 className="mt-2 text-3xl font-bold tracking-tight text-[#101D35] sm:text-4xl">
+            <h1 className="mt-2 break-words text-2xl font-bold tracking-tight text-[#101D35] sm:text-4xl">
               Welcome, {String(profile.fullName ?? session.user.name)}
             </h1>
             <p className="mt-2 text-sm text-slate-600">
@@ -56,7 +56,7 @@ export default async function AccountPage({ searchParams }: { searchParams: Prom
           </div>
           <Link
             href="/internships"
-            className="admin-btn-primary inline-flex w-fit items-center gap-2 rounded-full bg-[#1769D2] px-5 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-[#123B70]"
+            className="admin-btn-primary inline-flex w-full shrink-0 items-center justify-center gap-2 rounded-full bg-[#1769D2] px-5 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-[#123B70] sm:w-fit"
           >
             Explore internships <ArrowRight size={16} />
           </Link>
@@ -149,7 +149,7 @@ export default async function AccountPage({ searchParams }: { searchParams: Prom
                         )}
                       </div>
 
-                      <dl className="mt-5 grid grid-cols-2 gap-3 text-sm">
+                      <dl className="mt-5 grid grid-cols-1 gap-3 text-sm sm:grid-cols-2">
                         <div className="rounded-xl border border-slate-100 bg-slate-50/80 p-3.5">
                           <dt className="text-xs font-medium text-slate-500">Start Date</dt>
                           <dd className="mt-1 font-bold text-[#101D35]">{formatCrewlineDate(item.startedAt)}</dd>
@@ -158,7 +158,7 @@ export default async function AccountPage({ searchParams }: { searchParams: Prom
                           <dt className="text-xs font-medium text-slate-500">Planned End Date</dt>
                           <dd className="mt-1 font-bold text-[#101D35]">{formatCrewlineDate(item.scheduledEndAt)}</dd>
                         </div>
-                        <div className="col-span-2 rounded-xl border border-amber-200/60 bg-amber-50/70 p-3.5">
+                        <div className="rounded-xl border border-amber-200/60 bg-amber-50/70 p-3.5 sm:col-span-2">
                           <dt className="text-xs font-bold uppercase tracking-wider text-amber-900">
                             Final Submission Deadline
                           </dt>
@@ -257,9 +257,9 @@ export default async function AccountPage({ searchParams }: { searchParams: Prom
 
           <dl className="mt-5 grid gap-x-8 gap-y-3 sm:grid-cols-2">
             {profileDetails.map(([label, value]) => (
-              <div key={label} className="flex justify-between gap-4 border-b border-slate-100 pb-3 text-sm">
-                <dt className="text-slate-500">{label}</dt>
-                <dd className="text-right font-medium text-[#101D35]">
+              <div key={label} className="flex flex-col gap-1 border-b border-slate-100 pb-3 text-sm sm:flex-row sm:items-center sm:justify-between sm:gap-4">
+                <dt className="shrink-0 text-slate-500">{label}</dt>
+                <dd className="min-w-0 break-words font-medium text-[#101D35] sm:text-right">
                   {value ? String(value) : <span className="text-slate-400">Not provided</span>}
                 </dd>
               </div>

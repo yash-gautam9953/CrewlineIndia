@@ -67,7 +67,7 @@ export function StudentSidebar({ studentName, studentEmail }: StudentSidebarProp
     <div className="flex h-full flex-col justify-between">
       <div>
         {/* Header / Brand */}
-        <div className="border-b border-slate-100 p-5">
+        <div className="flex items-center justify-between border-b border-slate-100 p-5">
           <div className="flex items-center gap-2.5">
             <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-blue-50 text-[#1769D2]">
               <GraduationCap size={20} />
@@ -82,6 +82,14 @@ export function StudentSidebar({ studentName, studentEmail }: StudentSidebarProp
               <p className="text-[11px] font-medium text-slate-400">Crewline Workspace</p>
             </div>
           </div>
+          <button
+            type="button"
+            onClick={() => setMobileOpen(false)}
+            aria-label="Close student sidebar"
+            className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-700 md:hidden"
+          >
+            <X size={18} />
+          </button>
         </div>
 
         {/* If inside an internship workspace, show quick back link */}
@@ -199,12 +207,12 @@ export function StudentSidebar({ studentName, studentEmail }: StudentSidebarProp
   return (
     <>
       {/* Mobile Top Header Toggle Bar */}
-      <div className="sticky top-[88px] z-30 flex items-center justify-between border-b border-slate-200 bg-white px-4 py-3 md:hidden">
-        <div className="flex items-center gap-2">
-          <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-blue-50 text-[#1769D2]">
+      <div className="sticky top-[72px] z-30 flex items-center justify-between gap-2 border-b border-slate-200 bg-white px-4 py-3 md:hidden">
+        <div className="flex min-w-0 items-center gap-2">
+          <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-blue-50 text-[#1769D2]">
             <GraduationCap size={16} />
           </span>
-          <span className="text-xs font-black uppercase tracking-wider text-slate-400">
+          <span className="truncate text-xs font-black uppercase tracking-wider text-slate-400">
             Student / <strong className="text-[#101D35]">{isInternshipWorkspace ? "Internship Workspace" : "My Account"}</strong>
           </span>
         </div>
@@ -212,7 +220,7 @@ export function StudentSidebar({ studentName, studentEmail }: StudentSidebarProp
           type="button"
           onClick={() => setMobileOpen(!mobileOpen)}
           aria-label="Toggle student navigation sidebar"
-          className="flex items-center gap-1.5 rounded-lg border border-slate-200 bg-slate-50 px-3 py-1.5 text-xs font-bold text-slate-700 shadow-xs"
+          className="flex shrink-0 items-center gap-1.5 rounded-lg border border-slate-200 bg-slate-50 px-3 py-1.5 text-xs font-bold text-slate-700 shadow-xs"
         >
           {mobileOpen ? <X size={15} /> : <Menu size={15} />}
           <span>{mobileOpen ? "Close" : "Student Menu"}</span>
@@ -221,21 +229,21 @@ export function StudentSidebar({ studentName, studentEmail }: StudentSidebarProp
 
       {/* Mobile Off-canvas Drawer Sheet */}
       {mobileOpen && (
-        <div className="fixed inset-0 z-40 md:hidden">
+        <div className="fixed inset-0 z-[60] md:hidden">
           {/* Backdrop */}
           <div
             className="fixed inset-0 bg-slate-900/40 backdrop-blur-xs transition-opacity"
             onClick={() => setMobileOpen(false)}
           />
           {/* Drawer Sheet */}
-          <div className="fixed inset-y-0 left-0 z-50 w-72 bg-white shadow-2xl">
+          <div className="fixed inset-y-0 left-0 z-[61] w-72 max-w-[85vw] overflow-y-auto bg-white shadow-2xl">
             {sidebarContent}
           </div>
         </div>
       )}
 
       {/* Desktop Sticky Sidebar */}
-      <aside className="sticky top-[88px] hidden h-[calc(100vh-88px)] w-64 xl:w-72 shrink-0 border-r border-slate-200/80 bg-white md:block">
+      <aside className="sticky top-[88px] hidden h-[calc(100vh-88px)] w-64 shrink-0 overflow-y-auto border-r border-slate-200/80 bg-white md:block xl:w-72">
         {sidebarContent}
       </aside>
     </>

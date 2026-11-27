@@ -312,7 +312,7 @@ export default async function InternshipDetailsPage({ params, searchParams }: Pr
                 href={`/api/documents/${offerDoc.$id}/download`}
                 target="_blank"
                 rel="noreferrer"
-                className="admin-btn-primary inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-[#1769D2] px-5 text-sm font-semibold text-white shadow-sm transition hover:bg-[#123B70]"
+                className="admin-btn-primary inline-flex min-h-11 w-full shrink-0 items-center justify-center gap-2 rounded-xl bg-[#1769D2] px-5 text-sm font-semibold text-white shadow-sm transition hover:bg-[#123B70] sm:w-auto"
               >
                 <Download size={16} className="text-white" /> Download Offer Letter PDF
               </a>
@@ -608,7 +608,7 @@ export default async function InternshipDetailsPage({ params, searchParams }: Pr
                 href={`/api/documents/${internshipCertDoc.$id}/download`}
                 target="_blank"
                 rel="noreferrer"
-                className="admin-btn-primary inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-[#1769D2] px-5 text-sm font-semibold text-white shadow-sm transition hover:bg-[#123B70]"
+                className="admin-btn-primary inline-flex min-h-11 w-full shrink-0 items-center justify-center gap-2 rounded-xl bg-[#1769D2] px-5 text-sm font-semibold text-white shadow-sm transition hover:bg-[#123B70] sm:w-auto"
               >
                 <Download size={16} className="text-white" /> Download Certificate PDF
               </a>
@@ -660,7 +660,7 @@ export default async function InternshipDetailsPage({ params, searchParams }: Pr
                 href={`/api/documents/${projectCertDoc.$id}/download`}
                 target="_blank"
                 rel="noreferrer"
-                className="admin-btn-primary inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-[#1769D2] px-5 text-sm font-semibold text-white shadow-sm transition hover:bg-[#123B70]"
+                className="admin-btn-primary inline-flex min-h-11 w-full shrink-0 items-center justify-center gap-2 rounded-xl bg-[#1769D2] px-5 text-sm font-semibold text-white shadow-sm transition hover:bg-[#123B70] sm:w-auto"
               >
                 <Download size={16} className="text-white" /> Download Certificate PDF
               </a>
