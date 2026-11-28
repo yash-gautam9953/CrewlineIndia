@@ -19,7 +19,7 @@ export default async function AdminLayout({
   }
 
   return (
-    <div className="flex min-h-[calc(100vh-72px)] flex-col bg-[#F7F9FC] md:min-h-[calc(100vh-88px)] md:flex-row">
+    <div className="flex min-h-[calc(100vh-72px)] flex-col bg-[#F7F9FC] dark:bg-[#0B1220] md:min-h-[calc(100vh-88px)] md:flex-row">
       <AdminSidebar adminEmail={admin.email} />
       <div className="flex-1 min-w-0">
         {children}

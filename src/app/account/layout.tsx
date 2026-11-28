@@ -19,7 +19,7 @@ export default async function AccountLayout({
   }
 
   return (
-    <div className="flex min-h-[calc(100vh-72px)] flex-col bg-[#F7F9FC] md:min-h-[calc(100vh-88px)] md:flex-row">
+    <div className="flex min-h-[calc(100vh-72px)] flex-col bg-[#F7F9FC] dark:bg-[#0B1220] md:min-h-[calc(100vh-88px)] md:flex-row">
       <StudentSidebar
         studentName={session.user.name}
         studentEmail={session.user.email}

@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { revalidateTag } from "next/cache";
 import { ID } from "node-appwrite";
 import { z } from "zod";
 import { getAdminUser } from "@/lib/authz";
@@ -49,6 +50,7 @@ export async function POST(request: Request) {
         publicationStatus: input.data.publicationStatus,
       },
     });
+    try { revalidateTag("internships-catalog", { expire: 0 }); } catch { /* ignore outside Next runtime */ }
     return NextResponse.json({ id: row.$id }, { status: 201 });
   } catch (error) {
     const code = typeof error === "object" && error && "code" in error ? error.code : undefined;

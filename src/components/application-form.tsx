@@ -1,8 +1,9 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { FormEvent, useState } from "react";
+import { FormEvent, useRef, useState } from "react";
 import { ArrowRight, LoaderCircle } from "lucide-react";
+import { readApiResponse } from "@/lib/http-client";
 
 type Props = { internshipSlug: string; studentName: string; studentEmail: string; profile: Record<string, unknown> };
 
@@ -10,12 +11,15 @@ export function ApplicationForm({ internshipSlug, studentName, studentEmail, pro
   const router = useRouter();
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
+  const submittingRef = useRef(false);
   const inputClass =
     "focus-ring mt-2 min-h-12 w-full rounded-xl border border-slate-200 bg-white px-4 text-sm text-[#101D35] transition placeholder:text-slate-400 dark:border-slate-700 dark:bg-[#151F32] dark:text-[#F1F5FB] dark:placeholder:text-slate-500";
   const labelClass = "block text-sm font-semibold text-slate-700 dark:text-slate-300";
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    if (submittingRef.current) return;
+    submittingRef.current = true;
     setBusy(true);
     setError("");
     try {
@@ -25,13 +29,15 @@ export function ApplicationForm({ internshipSlug, studentName, studentEmail, pro
         headers: { "content-type": "application/json" },
         body: JSON.stringify({ ...fields, internshipSlug }),
       });
-      const result = await response.json();
-      if (!response.ok) throw new Error(result.error ?? "Application failed.");
-      router.replace(result.redirectTo);
-      router.refresh();
+      const result = await readApiResponse<{ error?: string; redirectTo?: string }>(
+        response,
+        "Application failed. Please try again."
+      );
+      router.replace(result.redirectTo || "/account");
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : "Application failed. Please try again.");
     } finally {
+      submittingRef.current = false;
       setBusy(false);
     }
   }

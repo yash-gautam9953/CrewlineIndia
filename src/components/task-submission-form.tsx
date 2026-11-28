@@ -1,8 +1,9 @@
 "use client";
 
-import { FormEvent, useState } from "react";
+import { FormEvent, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { UploadCloud } from "lucide-react";
+import { LoaderCircle, UploadCloud } from "lucide-react";
+import { readApiResponse } from "@/lib/http-client";
 
 export function TaskSubmissionForm({
   taskId,
@@ -23,22 +24,31 @@ export function TaskSubmissionForm({
 }) {
   const router = useRouter();
   const [error, setError] = useState("");
+  const [message, setMessage] = useState("");
   const [busy, setBusy] = useState(false);
+  const [isRefreshing, startTransition] = useTransition();
+  const submittingRef = useRef(false);
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    if (submittingRef.current) return;
+    submittingRef.current = true;
     setBusy(true);
     setError("");
+    setMessage("");
     try {
       const form = new FormData(event.currentTarget);
       form.set("taskId", taskId);
       const response = await fetch("/api/submissions", { method: "POST", body: form });
-      const result = await response.json();
-      if (!response.ok) throw new Error(result.error ?? "Could not submit your work.");
-      router.refresh();
+      await readApiResponse(response, "Could not submit your work.");
+      setMessage("Project submitted! Updating your workspace status…");
+      startTransition(() => {
+        router.refresh();
+      });
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "Could not submit your work.");
     } finally {
+      submittingRef.current = false;
       setBusy(false);
     }
   }
@@ -86,15 +96,20 @@ export function TaskSubmissionForm({
           {error}
         </p>
       )}
+      {message && (
+        <p role="status" className="rounded-xl border border-emerald-200 bg-emerald-50 p-3 text-xs font-medium text-emerald-800 dark:border-emerald-900/40 dark:bg-emerald-950/40 dark:text-emerald-300 sm:col-span-2">
+          {message}
+        </p>
+      )}
 
       <div className="sm:col-span-2">
         <button
           type="submit"
-          disabled={busy}
+          disabled={busy || isRefreshing}
           className="admin-btn-primary inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-[#1769D2] px-6 text-sm font-semibold text-white shadow-sm transition hover:bg-[#123B70] disabled:opacity-60"
         >
-          <UploadCloud size={16} className="text-white" />
-          {busy ? "Submitting project…" : "Submit final project"}
+          {busy || isRefreshing ? <LoaderCircle size={16} className="animate-spin text-white" /> : <UploadCloud size={16} className="text-white" />}
+          {busy ? "Submitting project…" : isRefreshing ? "Updating status…" : "Submit final project"}
         </button>
       </div>
     </form>

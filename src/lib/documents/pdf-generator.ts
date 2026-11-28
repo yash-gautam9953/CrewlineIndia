@@ -1,5 +1,4 @@
 import "server-only";
-import { chromium } from "playwright";
 import { invokeDocumentFunction, isDocumentFunctionConfigured } from "./function-client";
 
 export async function generatePdf(html: string, landscape: boolean) {
@@ -15,10 +14,13 @@ export async function generatePdf(html: string, landscape: boolean) {
     return Buffer.from(result.pdfBase64, "base64");
   }
 
-  // Require Appwrite Document Function in production; never silently fall back to untested local/Browserless runtimes
+  // Require Appwrite Document Function in production; never bundle or invoke local Playwright on Vercel
   if (process.env.NODE_ENV === "production") {
     throw new Error("APPWRITE_DOCUMENT_FUNCTION_ID is required for PDF generation in production.");
   }
+
+  const playwrightPkg = "playwright";
+  const { chromium } = (await import(/* webpackIgnore: true */ playwrightPkg)) as typeof import("playwright");
 
   const wsEndpoint =
     process.env.CHROME_WS_ENDPOINT ||

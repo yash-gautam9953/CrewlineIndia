@@ -1,4 +1,6 @@
 import "server-only";
+import { cache } from "react";
+import { revalidateTag, unstable_cache } from "next/cache";
 import { ID, Query } from "node-appwrite";
 import { createPrivilegedAppwriteClient } from "@/lib/appwrite/server";
 import { getAppwriteResources } from "@/lib/appwrite/resources";
@@ -12,7 +14,7 @@ export type PaymentSettings = {
 
 const CONTENT_KEY = "payment-settings";
 
-export async function readPaymentSettings(): Promise<PaymentSettings> {
+async function fetchPaymentSettings(): Promise<PaymentSettings> {
   const service = createPrivilegedAppwriteClient();
   if (!service) {
     return { configured: false, googleFormUrl: "", feeAmount: null, instructions: "" };
@@ -47,6 +49,20 @@ export async function readPaymentSettings(): Promise<PaymentSettings> {
     return { configured: false, googleFormUrl: "", feeAmount: null, instructions: "" };
   }
 }
+
+const getCachedPaymentSettings = unstable_cache(
+  async () => fetchPaymentSettings(),
+  ["crewline-payment-settings"],
+  { revalidate: 120, tags: ["payment-settings"] }
+);
+
+export const readPaymentSettings = cache(async (): Promise<PaymentSettings> => {
+  try {
+    return await getCachedPaymentSettings();
+  } catch {
+    return fetchPaymentSettings();
+  }
+});
 
 export async function savePaymentSettings(
   adminId: string,
@@ -99,4 +115,5 @@ export async function savePaymentSettings(
       },
     });
   }
+  try { revalidateTag("payment-settings", { expire: 0 }); } catch { /* ignore outside Next runtime */ }
 }

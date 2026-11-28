@@ -1,40 +1,134 @@
 "use client";
 
-import { FormEvent, useState } from "react";
+import { FormEvent, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
+import { readApiResponse } from "@/lib/http-client";
+import { Button } from "@/components/ui/button";
+import { PasswordInput } from "@/components/ui/password-input";
+import { alertErrorClass, alertSuccessClass, formInputLgClass, formLabelLgClass } from "@/components/ui/form-controls";
 
 export function ForgotPasswordForm() {
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
+  const submittingRef = useRef(false);
+
   async function submit(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault(); setError(""); setMessage(""); setBusy(true);
+    event.preventDefault();
+    if (submittingRef.current) return;
+    submittingRef.current = true;
+    setError("");
+    setMessage("");
+    setBusy(true);
     try {
       const email = new FormData(event.currentTarget).get("email");
-      const response = await fetch("/api/auth/recovery", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ email }) });
-      const data = await response.json();
-      if (!response.ok) throw new Error(data.error ?? "Could not send recovery email.");
-      setMessage(data.message);
-    } catch (caught) { setError(caught instanceof Error ? caught.message : "Could not send recovery email."); }
-    finally { setBusy(false); }
+      const response = await fetch("/api/auth/recovery", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ email }),
+      });
+      const data = await readApiResponse<{ message?: string; error?: string }>(response, "Could not send recovery email.");
+      setMessage(data.message ?? "If this email is registered, a recovery link has been sent.");
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : "Could not send recovery email.");
+    } finally {
+      submittingRef.current = false;
+      setBusy(false);
+    }
   }
-  return <form onSubmit={submit} className="mt-7 space-y-4"><label className="block text-sm font-medium text-slate-700 dark:text-slate-300">Account email<input className="focus-ring mt-2 min-h-12 w-full rounded-xl border border-slate-200 bg-white px-4 text-sm text-navy dark:border-slate-700 dark:bg-[#1C2940] dark:text-[#F1F5FB]" name="email" type="email" required /></label>{message && <p role="status" className="rounded-xl bg-emerald-50 p-3 text-sm text-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-300">{message}</p>}{error && <p role="alert" className="rounded-xl bg-red-50 p-3 text-sm text-red-700 dark:bg-red-950/40 dark:text-red-300">{error}</p>}<button disabled={busy} className="min-h-12 w-full rounded-xl bg-brand px-5 text-sm font-semibold text-white disabled:opacity-60">{busy ? "Sending…" : "Send recovery email"}</button></form>;
+
+  return (
+    <form onSubmit={submit} className="mt-7 space-y-5">
+      <div>
+        <label htmlFor="recovery-email" className={formLabelLgClass}>
+          Account email <span className="text-rose-600" aria-hidden="true">*</span>
+        </label>
+        <input
+          id="recovery-email"
+          name="email"
+          type="email"
+          autoComplete="username"
+          spellCheck={false}
+          required
+          placeholder="you@example.com"
+          className={formInputLgClass}
+        />
+      </div>
+
+      {message && (
+        <p role="status" className={alertSuccessClass}>
+          {message}
+        </p>
+      )}
+      {error && (
+        <p role="alert" className={alertErrorClass}>
+          {error}
+        </p>
+      )}
+
+      <Button type="submit" variant="primary" size="lg" fullWidth loading={busy}>
+        {busy ? "Sending…" : "Send recovery email"}
+      </Button>
+    </form>
+  );
 }
 
 export function ResetPasswordForm({ userId, secret }: { userId: string; secret: string }) {
   const router = useRouter();
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
+  const submittingRef = useRef(false);
+
   async function submit(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault(); setError(""); setBusy(true);
+    event.preventDefault();
+    if (submittingRef.current) return;
+    submittingRef.current = true;
+    setError("");
+    setBusy(true);
     try {
       const password = new FormData(event.currentTarget).get("password");
-      const response = await fetch("/api/auth/recovery/complete", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ userId, secret, password }) });
-      const data = await response.json();
-      if (!response.ok) throw new Error(data.error ?? "Could not reset password.");
-      router.replace(data.redirectTo);
-    } catch (caught) { setError(caught instanceof Error ? caught.message : "Could not reset password."); }
-    finally { setBusy(false); }
+      const response = await fetch("/api/auth/recovery/complete", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ userId, secret, password }),
+      });
+      const data = await readApiResponse<{ redirectTo?: string; error?: string }>(response, "Could not reset password.");
+      router.replace(data.redirectTo || "/login");
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : "Could not reset password.");
+    } finally {
+      submittingRef.current = false;
+      setBusy(false);
+    }
   }
-  return <form onSubmit={submit} className="mt-7 space-y-4"><label className="block text-sm font-medium text-slate-700 dark:text-slate-300">New password<input className="focus-ring mt-2 min-h-12 w-full rounded-xl border border-slate-200 bg-white px-4 text-sm text-navy dark:border-slate-700 dark:bg-[#1C2940] dark:text-[#F1F5FB]" name="password" type="password" minLength={8} maxLength={128} required /></label>{error && <p role="alert" className="rounded-xl bg-red-50 p-3 text-sm text-red-700 dark:bg-red-950/40 dark:text-red-300">{error}</p>}<button disabled={busy} className="min-h-12 w-full rounded-xl bg-brand px-5 text-sm font-semibold text-white disabled:opacity-60">{busy ? "Saving…" : "Set new password"}</button></form>;
+
+  return (
+    <form onSubmit={submit} className="mt-7 space-y-5">
+      <div>
+        <label htmlFor="reset-password" className={formLabelLgClass}>
+          New password <span className="text-rose-600" aria-hidden="true">*</span>
+        </label>
+        <PasswordInput
+          id="reset-password"
+          name="password"
+          autoComplete="new-password"
+          minLength={8}
+          maxLength={128}
+          required
+          className="mt-2"
+          placeholder="At least 8 characters"
+        />
+      </div>
+
+      {error && (
+        <p role="alert" className={alertErrorClass}>
+          {error}
+        </p>
+      )}
+
+      <Button type="submit" variant="primary" size="lg" fullWidth loading={busy}>
+        {busy ? "Saving…" : "Set new password"}
+      </Button>
+    </form>
+  );
 }

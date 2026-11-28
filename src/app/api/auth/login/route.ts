@@ -22,7 +22,7 @@ export async function POST(request: Request) {
     const sessionClient = (await import("@/lib/appwrite/session")).createSessionClient(session.secret);
     const user = await sessionClient.account.get();
     await ensureStudentProfile(user);
-    const response = NextResponse.json({ redirectTo: user.emailVerification && isAdminIdentity(user.$id) ? "/admin" : "/account" });
+    const response = NextResponse.json({ redirectTo: isAdminIdentity(user.$id) ? "/admin" : "/account" });
     response.cookies.set(sessionCookieName(), session.secret, {
       httpOnly: true,
       secure: process.env.NODE_ENV === "production",

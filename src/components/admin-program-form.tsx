@@ -1,19 +1,26 @@
 "use client";
 
-import { FormEvent, useState } from "react";
+import { FormEvent, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { LoaderCircle } from "lucide-react";
+import { readApiResponse } from "@/lib/http-client";
 
 const domains = ["Web Development", "Python Development", "Java Development", "AI/ML", "Data Science", "UI/UX Design", "Cybersecurity", "Cloud Computing"];
 
 export function AdminProgramForm() {
   const router = useRouter();
   const [error, setError] = useState("");
+  const [message, setMessage] = useState("");
   const [busy, setBusy] = useState(false);
+  const [isRefreshing, startTransition] = useTransition();
+  const submittingRef = useRef(false);
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    if (submittingRef.current) return;
+    submittingRef.current = true;
     setError("");
+    setMessage("");
     setBusy(true);
     try {
       const form = event.currentTarget;
@@ -23,13 +30,16 @@ export function AdminProgramForm() {
         headers: { "content-type": "application/json" },
         body: JSON.stringify(body),
       });
-      const result = await response.json();
-      if (!response.ok) throw new Error(result.error ?? "Could not save internship.");
+      await readApiResponse(response, "Could not save internship.");
       form.reset();
-      router.refresh();
+      setMessage("Internship program saved.");
+      startTransition(() => {
+        router.refresh();
+      });
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : "Could not save internship.");
     } finally {
+      submittingRef.current = false;
       setBusy(false);
     }
   }
@@ -47,6 +57,7 @@ export function AdminProgramForm() {
     <label className="text-sm font-medium text-slate-700 dark:text-slate-300 sm:col-span-2">Learning outcomes <span className="font-normal text-slate-400">(optional)</span><textarea name="learningOutcomes" maxLength={4000} rows={3} className={textarea} /></label>
     <label className="text-sm font-medium text-slate-700 dark:text-slate-300">Publication<select name="publicationStatus" className={input}><option value="draft">Save as draft</option><option value="published">Publish now</option></select></label>
     {error && <p role="alert" className="rounded-xl bg-red-50 p-3 text-sm text-red-700 sm:col-span-2 dark:bg-red-950/40 dark:text-red-300">{error}</p>}
-    <div className="sm:col-span-2"><button type="submit" disabled={busy} className="admin-btn-primary inline-flex min-h-11 items-center gap-2 rounded-xl bg-[#1769D2] px-5 text-sm font-semibold text-white border-transparent hover:bg-[#123B70] disabled:opacity-60">{busy && <LoaderCircle size={16} className="animate-spin text-white" />}{busy ? "Saving…" : "Save internship"}</button></div>
+    {message && <p role="status" className="rounded-xl bg-emerald-50 p-3 text-sm text-emerald-800 sm:col-span-2 dark:bg-emerald-950/40 dark:text-emerald-300">{message}</p>}
+    <div className="sm:col-span-2"><button type="submit" disabled={busy || isRefreshing} className="admin-btn-primary inline-flex min-h-11 items-center gap-2 rounded-xl bg-[#1769D2] px-5 text-sm font-semibold text-white border-transparent hover:bg-[#123B70] disabled:opacity-60">{(busy || isRefreshing) && <LoaderCircle size={16} className="animate-spin text-white" />}{busy ? "Saving…" : isRefreshing ? "Updating…" : "Save internship"}</button></div>
   </form>;
 }

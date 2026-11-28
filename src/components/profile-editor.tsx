@@ -1,17 +1,22 @@
 "use client";
 
-import { FormEvent, useState } from "react";
+import { FormEvent, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { LoaderCircle, Save } from "lucide-react";
+import { readApiResponse } from "@/lib/http-client";
 
 export function ProfileEditor({ profile, email }: { profile: Record<string, unknown>; email: string }) {
   const router = useRouter();
   const [error, setError] = useState("");
   const [saved, setSaved] = useState(false);
   const [busy, setBusy] = useState(false);
+  const [, startTransition] = useTransition();
+  const submittingRef = useRef(false);
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    if (submittingRef.current) return;
+    submittingRef.current = true;
     setBusy(true);
     setError("");
     setSaved(false);
@@ -22,13 +27,15 @@ export function ProfileEditor({ profile, email }: { profile: Record<string, unkn
         headers: { "content-type": "application/json" },
         body: JSON.stringify(body),
       });
-      const result = await response.json();
-      if (!response.ok) throw new Error(result.error ?? "Could not save your details.");
+      await readApiResponse(response, "Could not save your details.");
       setSaved(true);
-      router.refresh();
+      startTransition(() => {
+        router.refresh();
+      });
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "Could not save your details.");
     } finally {
+      submittingRef.current = false;
       setBusy(false);
     }
   }

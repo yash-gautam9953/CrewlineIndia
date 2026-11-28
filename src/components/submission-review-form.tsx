@@ -1,8 +1,9 @@
 "use client";
 
-import { FormEvent, useState } from "react";
+import { FormEvent, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { CheckCircle2, LoaderCircle } from "lucide-react";
+import { readApiResponse } from "@/lib/http-client";
 
 type Props = {
   submissionId: string;
@@ -14,12 +15,18 @@ export function SubmissionReviewForm({ submissionId, status, maxScore }: Props) 
   const router = useRouter();
   const [decision, setDecision] = useState<"approved" | "revision_required" | "rejected">("approved");
   const [error, setError] = useState("");
+  const [message, setMessage] = useState("");
   const [busy, setBusy] = useState(false);
+  const [isRefreshing, startTransition] = useTransition();
+  const submittingRef = useRef(false);
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    if (submittingRef.current) return;
+    submittingRef.current = true;
     setBusy(true);
     setError("");
+    setMessage("");
 
     try {
       const body = Object.fromEntries(new FormData(event.currentTarget).entries());
@@ -28,12 +35,15 @@ export function SubmissionReviewForm({ submissionId, status, maxScore }: Props) 
         headers: { "content-type": "application/json" },
         body: JSON.stringify(body),
       });
-      const result = await response.json();
-      if (!response.ok) throw new Error(result.error ?? "Could not save review.");
-      router.refresh();
+      await readApiResponse(response, "Could not save review.");
+      setMessage("Decision saved cleanly.");
+      startTransition(() => {
+        router.refresh();
+      });
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "Could not save review.");
     } finally {
+      submittingRef.current = false;
       setBusy(false);
     }
   }
@@ -106,17 +116,24 @@ export function SubmissionReviewForm({ submissionId, status, maxScore }: Props) 
           {error}
         </p>
       )}
+      {message && (
+        <p role="status" className="mt-3 rounded-lg bg-emerald-50 p-3 text-xs font-medium text-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-300">
+          {message}
+        </p>
+      )}
 
       <div className="mt-4 flex flex-wrap items-center justify-between gap-2">
         <button
           type="submit"
-          disabled={busy}
+          disabled={busy || isRefreshing}
           className="admin-btn-primary inline-flex min-h-10 items-center gap-2 rounded-lg bg-[#1769D2] px-5 text-sm font-semibold text-white border-transparent hover:bg-[#123B70] disabled:opacity-50"
         >
-          {busy ? <LoaderCircle size={15} className="animate-spin text-white" /> : null}
+          {busy || isRefreshing ? <LoaderCircle size={15} className="animate-spin text-white" /> : null}
           {busy
             ? "Processing…"
-            : decision === "approved"
+            : isRefreshing
+              ? "Updating workspace…"
+              : decision === "approved"
               ? "Approve & Issue Certificates"
               : decision === "revision_required"
                 ? "Request Revision"

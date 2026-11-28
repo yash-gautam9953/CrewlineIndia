@@ -1,4 +1,4 @@
-import { NextResponse } from "next/server";
+import { after, NextResponse } from "next/server";
 import { ID, Permission, Query, Role } from "node-appwrite";
 import { z } from "zod";
 import { getSessionUser } from "@/lib/appwrite/session";
@@ -27,73 +27,79 @@ const schema = z.object({
 });
 
 export async function POST(request: Request) {
-  if (!isTrustedOrigin(request)) {
-    return NextResponse.json({ error: "Untrusted request origin." }, { status: 403 });
-  }
-  if ((await checkRateLimit(request, "application-submit", 5)).limited) {
-    return NextResponse.json({ error: "Too many enrollments were submitted. Please wait a minute and try again." }, { status: 429 });
-  }
-
-  const session = await getSessionUser();
-  if (!session) return NextResponse.json({ error: "Please sign in to enroll." }, { status: 401 });
-  if (!session.user.emailVerification) {
-    return NextResponse.json(
-      { error: "Verify your email address before enrolling in an internship. Use the verification link on your account or apply page." },
-      { status: 403 }
-    );
-  }
-
-  const envCheck = checkRequiredEnv(ENROLLMENT_REQUIRED_ENV);
-  const service = createPrivilegedAppwriteClient();
-  if (!envCheck.ok || !service) {
-    console.error("[enrollment] Missing required environment configuration:", envCheck.missing);
-    return NextResponse.json({ error: "Enrollment service is not configured." }, { status: 503 });
-  }
-  let resources;
   try {
-    resources = await getAppwriteResources();
-  } catch (error) {
-    if (error instanceof AppwriteResourceError) {
-      console.error("[enrollment] Appwrite resource resolution failed:", error.message);
+    if (!isTrustedOrigin(request)) {
+      return NextResponse.json({ error: "Untrusted request origin." }, { status: 403 });
     }
-    return NextResponse.json({ error: "Enrollment service is not configured." }, { status: 503 });
-  }
-  const {
-    internships: internshipsTable,
-    applications: applicationsTable,
-    enrollments: enrollmentsTable,
-    studentProfiles: profilesTable,
-  } = resources.tables;
+    const rl = await checkRateLimit(request, "application-submit", 5);
+    if (rl.limited) {
+      return NextResponse.json(
+        {
+          error: rl.unavailable
+            ? "Enrollment rate protection is temporarily unavailable. Check server configuration."
+            : "Too many enrollments were submitted. Please wait a minute and try again.",
+        },
+        { status: rl.unavailable ? 503 : 429 }
+      );
+    }
 
-  const input = schema.safeParse(await request.json().catch(() => null));
-  if (!input.success) {
-    return NextResponse.json({ error: "Please complete all required enrollment details." }, { status: 400 });
-  }
+    const session = await getSessionUser();
+    if (!session) return NextResponse.json({ error: "Please sign in to enroll." }, { status: 401 });
 
-  // Confirmed business rule: internship starts immediately on enrollment date (Asia/Kolkata)
-  const today = new Intl.DateTimeFormat("en-CA", {
-    timeZone: "Asia/Kolkata",
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-  }).format(new Date());
+    const envCheck = checkRequiredEnv(ENROLLMENT_REQUIRED_ENV);
+    const service = createPrivilegedAppwriteClient();
+    if (!envCheck.ok || !service) {
+      console.error("[enrollment] Missing required environment configuration:", envCheck.missing, envCheck.mismatchError);
+      return NextResponse.json({ error: "Enrollment service is not configured." }, { status: 503 });
+    }
+    let resources;
+    try {
+      resources = await getAppwriteResources();
+    } catch (error) {
+      if (error instanceof AppwriteResourceError) {
+        console.error("[enrollment] Appwrite resource resolution failed:", error.message);
+      }
+      return NextResponse.json({ error: "Enrollment service is not configured." }, { status: 503 });
+    }
+    const {
+      internships: internshipsTable,
+      applications: applicationsTable,
+      enrollments: enrollmentsTable,
+      studentProfiles: profilesTable,
+    } = resources.tables;
 
-  if (input.data.requestedStartDate && input.data.requestedStartDate !== today) {
-    return NextResponse.json(
-      { error: "Internship start date is automatically set to today's enrollment date and cannot be changed." },
-      { status: 400 }
-    );
-  }
+    const input = schema.safeParse(await request.json().catch(() => null));
+    if (!input.success) {
+      return NextResponse.json({ error: "Please complete all required enrollment details." }, { status: 400 });
+    }
 
-  const duration = "1 Month" as const;
-  const dates = calculateInternshipDates(today, duration);
+    // Confirmed business rule: internship starts immediately on enrollment date (Asia/Kolkata)
+    const today = new Intl.DateTimeFormat("en-CA", {
+      timeZone: "Asia/Kolkata",
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+    }).format(new Date());
 
-  try {
-    const internships = await service.tablesDB.listRows({
-      databaseId: service.databaseId,
-      tableId: internshipsTable,
-      queries: [Query.equal("slug", input.data.internshipSlug), Query.equal("publicationStatus", "published"), Query.limit(1)],
-    });
+    if (input.data.requestedStartDate && input.data.requestedStartDate !== today) {
+      return NextResponse.json(
+        { error: "Internship start date is automatically set to today's enrollment date and cannot be changed." },
+        { status: 400 }
+      );
+    }
+
+    const duration = "1 Month" as const;
+    const dates = calculateInternshipDates(today, duration);
+
+    // Fetch internship program + student profile concurrently
+    const [internships, profile] = await Promise.all([
+      service.tablesDB.listRows({
+        databaseId: service.databaseId,
+        tableId: internshipsTable,
+        queries: [Query.equal("slug", input.data.internshipSlug), Query.equal("publicationStatus", "published"), Query.limit(1)],
+      }),
+      ensureStudentProfile(session.user),
+    ]);
     const internship = internships.rows[0];
     if (!internship) {
       return NextResponse.json({ error: "This internship domain is not currently available for enrollment." }, { status: 404 });
@@ -115,7 +121,6 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "You have already enrolled in this internship program." }, { status: 409 });
     }
 
-    const profile = await ensureStudentProfile(session.user);
     await service.tablesDB.updateRow({
       databaseId: service.databaseId,
       tableId: profilesTable,
@@ -214,17 +219,19 @@ export async function POST(request: Request) {
       );
     }
 
-    await sendCrewlineEmail({
-      userId: session.user.$id,
-      subject: `Crewline enrollment active: ${String(internship.title ?? "Internship")}`,
-      html: enrollmentConfirmationEmail({
-        studentName: input.data.studentName,
-        internshipTitle: String(internship.title ?? "Internship"),
-        startDate: dates.startAt.slice(0, 10),
-        endDate: dates.endAt.slice(0, 10),
-        deadlineDate: dates.submissionDeadlineAt.slice(0, 10),
-        offerIssued,
-      }),
+    after(async () => {
+      await sendCrewlineEmail({
+        userId: session.user.$id,
+        subject: `Crewline enrollment active: ${String(internship.title ?? "Internship")}`,
+        html: enrollmentConfirmationEmail({
+          studentName: input.data.studentName,
+          internshipTitle: String(internship.title ?? "Internship"),
+          startDate: dates.startAt.slice(0, 10),
+          endDate: dates.endAt.slice(0, 10),
+          deadlineDate: dates.submissionDeadlineAt.slice(0, 10),
+          offerIssued,
+        }),
+      }).catch((err) => console.error("[enrollment] Async email error:", err));
     });
 
     return NextResponse.json({

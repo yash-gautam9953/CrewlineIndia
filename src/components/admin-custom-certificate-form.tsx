@@ -1,8 +1,9 @@
 "use client";
 
-import { FormEvent, useState } from "react";
+import { FormEvent, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { Award, CheckCircle2, ExternalLink, LoaderCircle } from "lucide-react";
+import { readApiResponse } from "@/lib/http-client";
 
 type CreatedDoc = {
   documentId: string;
@@ -16,11 +17,15 @@ export function AdminCustomCertificateForm() {
     "internship_completion"
   );
   const [busy, setBusy] = useState(false);
+  const [, startTransition] = useTransition();
   const [error, setError] = useState("");
   const [created, setCreated] = useState<CreatedDoc | null>(null);
+  const submittingRef = useRef(false);
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    if (submittingRef.current) return;
+    submittingRef.current = true;
     setBusy(true);
     setError("");
     setCreated(null);
@@ -32,18 +37,23 @@ export function AdminCustomCertificateForm() {
         headers: { "content-type": "application/json" },
         body: JSON.stringify(body),
       });
-      const result = await response.json();
-      if (!response.ok) throw new Error(result.error ?? "Could not generate certificate.");
+      const result = await readApiResponse<CreatedDoc & { error?: string }>(
+        response,
+        "Could not generate certificate."
+      );
       setCreated({
         documentId: result.documentId,
         downloadUrl: result.downloadUrl,
         verifyUrl: result.verifyUrl,
       });
       formEl.reset();
-      router.refresh();
+      startTransition(() => {
+        router.refresh();
+      });
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "Could not generate certificate.");
     } finally {
+      submittingRef.current = false;
       setBusy(false);
     }
   }

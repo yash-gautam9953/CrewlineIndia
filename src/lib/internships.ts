@@ -1,4 +1,6 @@
 import "server-only";
+import { cache } from "react";
+import { unstable_cache } from "next/cache";
 import { Query } from "node-appwrite";
 import { createPrivilegedAppwriteClient } from "@/lib/appwrite/server";
 import { getAppwriteResources } from "@/lib/appwrite/resources";
@@ -19,7 +21,7 @@ export type InternshipResult =
   | { status: "not-configured"; internships: [] }
   | { status: "unavailable"; internships: [] };
 
-export async function getPublishedInternships(limit = 6): Promise<InternshipResult> {
+async function fetchPublishedInternships(limit: number): Promise<InternshipResult> {
   const service = createPrivilegedAppwriteClient();
   if (!service) return { status: "not-configured", internships: [] };
 
@@ -33,6 +35,7 @@ export async function getPublishedInternships(limit = 6): Promise<InternshipResu
         Query.equal("publicationStatus", "published"),
         Query.orderDesc("$createdAt"),
         Query.limit(Math.min(Math.max(limit, 1), 25)),
+        Query.select(["$id", "title", "slug", "domain", "description", "duration", "eligibility", "applicationDeadline"]),
       ],
     });
 
@@ -59,3 +62,20 @@ export async function getPublishedInternships(limit = 6): Promise<InternshipResu
     return { status: "unavailable", internships: [] };
   }
 }
+
+const getCachedPublishedInternships = unstable_cache(
+  async (limit: number) => fetchPublishedInternships(limit),
+  ["crewline-published-internships"],
+  { revalidate: 60, tags: ["internships-catalog"] }
+);
+
+export const getPublishedInternships = cache(async (limit = 6): Promise<InternshipResult> => {
+  try {
+    const result = await getCachedPublishedInternships(limit);
+    // Avoid serving a cached transient outage if Appwrite recovers
+    if (result.status === "ready") return result;
+  } catch {
+    // Fallback outside Next.js runtime (e.g. standalone node tests)
+  }
+  return fetchPublishedInternships(limit);
+});

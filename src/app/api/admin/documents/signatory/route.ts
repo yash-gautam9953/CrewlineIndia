@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { revalidateTag } from "next/cache";
 import { ID, Query } from "node-appwrite";
 import { z } from "zod";
 import { getAdminUser } from "@/lib/authz";
@@ -97,6 +98,7 @@ export async function POST(request: Request) {
         data: { contentKey: "authorized-signatory", contentType: "authorized-signatory", content, isPublished: false, updatedBy: admin.$id, publishedAt: null },
       });
     }
+    try { revalidateTag("signatory-settings", { expire: 0 }); } catch { /* ignore outside Next runtime */ }
     return NextResponse.json({ saved: true, name: parsed.data.name, designation: parsed.data.designation }, { status: 200 });
   } catch (error) {
     const failure = (typeof error === "object" && error !== null ? error : {}) as { code?: unknown; type?: unknown };

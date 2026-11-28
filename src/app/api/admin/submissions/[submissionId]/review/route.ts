@@ -1,5 +1,5 @@
-import { NextResponse } from "next/server";
-import { ID, Query } from "node-appwrite";
+import { after, NextResponse } from "next/server";
+import { ID, Query, type Models } from "node-appwrite";
 import { z } from "zod";
 import { getAdminUser } from "@/lib/authz";
 import { createPrivilegedAppwriteClient } from "@/lib/appwrite/server";
@@ -63,75 +63,72 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ su
       input.data.feedback.trim() ||
       "Approved by Crewline admin. Project and payment verified.";
 
-    // Auto-verify payment upon final admin approval (admin checks Google Form responses and clicks Approve)
-    if (input.data.decision === "approved" && paymentsTable) {
-      const paymentRows = await service.tablesDB.listRows({
+    // Record review + update submission status concurrently (and auto-verify payment + mark completed when approved)
+    const approvalWrites: Promise<unknown>[] = [
+      service.tablesDB.createRow<Models.DefaultRow>({
         databaseId: service.databaseId,
-        tableId: paymentsTable,
-        queries: [
-          Query.equal("studentId", studentId),
-          Query.equal("enrollmentId", enrollmentId),
-          Query.limit(1),
-        ],
-      });
-      const payment = paymentRows.rows[0];
-      if (payment && !["verified", "waived"].includes(String(payment.status))) {
-        await service.tablesDB.updateRow({
-          databaseId: service.databaseId,
-          tableId: paymentsTable,
-          rowId: payment.$id,
-          data: {
-            status: "verified",
-            verifiedBy: admin.$id,
-            verifiedAt: reviewedAt,
-            verificationReason: "Verified by admin on final approval",
-          },
-        });
-      }
-    }
+        tableId: reviewsTable,
+        rowId: ID.unique(),
+        data: {
+          submissionId,
+          reviewerId: admin.$id,
+          feedback: effectiveFeedback,
+          score: input.data.score === "" ? null : input.data.score,
+          decision: input.data.decision,
+          reviewedAt,
+        },
+      }),
+      service.tablesDB.updateRow<Models.DefaultRow>({
+        databaseId: service.databaseId,
+        tableId: submissionsTable,
+        rowId: submissionId,
+        data: { status: input.data.decision },
+      }),
+    ];
 
-    // 1. Record review decision in reviews table
-    await service.tablesDB.createRow({
-      databaseId: service.databaseId,
-      tableId: reviewsTable,
-      rowId: ID.unique(),
-      data: {
-        submissionId,
-        reviewerId: admin.$id,
-        feedback: effectiveFeedback,
-        score: input.data.score === "" ? null : input.data.score,
-        decision: input.data.decision,
-        reviewedAt,
-      },
-    });
-
-    // 2. Update submission status
-    await service.tablesDB.updateRow({
-      databaseId: service.databaseId,
-      tableId: submissionsTable,
-      rowId: submissionId,
-      data: { status: input.data.decision },
-    });
-
-    let generatedCertificates = false;
-
-    // 3. If approved, mark enrollment as completed and generate both certificates
     if (input.data.decision === "approved") {
-      try {
-        await service.tablesDB.updateRow({
+      approvalWrites.push(
+        service.tablesDB.updateRow({
           databaseId: service.databaseId,
           tableId: enrollmentsTable,
           rowId: enrollmentId,
-          data: {
-            status: "completed",
-            completedAt: reviewedAt,
-          },
-        });
-      } catch (enrollmentErr) {
-        console.error("[review] Could not update enrollment to completed:", enrollmentErr);
+          data: { status: "completed", completedAt: reviewedAt },
+        }).catch((enrollmentErr) => console.error("[review] Could not update enrollment to completed:", enrollmentErr))
+      );
+      if (paymentsTable) {
+        approvalWrites.push(
+          service.tablesDB
+            .listRows({
+              databaseId: service.databaseId,
+              tableId: paymentsTable,
+              queries: [Query.equal("studentId", studentId), Query.equal("enrollmentId", enrollmentId), Query.limit(1)],
+            })
+            .then((paymentRows) => {
+              const payment = paymentRows.rows[0];
+              if (payment && !["verified", "waived"].includes(String(payment.status))) {
+                return service.tablesDB.updateRow({
+                  databaseId: service.databaseId,
+                  tableId: paymentsTable,
+                  rowId: payment.$id,
+                  data: {
+                    status: "verified",
+                    verifiedBy: admin.$id,
+                    verifiedAt: reviewedAt,
+                    verificationReason: "Verified by admin on final approval",
+                  },
+                });
+              }
+            })
+        );
       }
+    }
 
-      // Automatically generate Internship Completion Certificate & Project Completion Certificate
+    await Promise.all(approvalWrites);
+
+    let generatedCertificates = false;
+
+    // Generate Internship Completion Certificate & Project Completion Certificate in parallel
+    if (input.data.decision === "approved") {
       try {
         await autoIssueCompletionCertificatesForApprovedSubmission(submissionId, admin.$id);
         generatedCertificates = true;
@@ -140,32 +137,35 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ su
       }
     }
 
-    const audit = await getDocumentsConfig();
-    if (audit) {
-      await writeAuditLog(
-        audit,
-        admin.$id,
-        `submission.${input.data.decision}`,
-        submissionId,
-        {
-          score: input.data.score === "" ? null : input.data.score,
-          feedback: effectiveFeedback,
-          enrollmentId,
-          studentId,
-          generatedCertificates,
-        },
-        "submission"
-      );
-    }
-
-    await sendCrewlineEmail({
-      userId: studentId,
-      subject: `Crewline project review update: ${input.data.decision.replaceAll("_", " ")}`,
-      html: submissionReviewEmail({
-        decision: input.data.decision,
-        feedback: effectiveFeedback,
-        certificatesIssued: generatedCertificates,
-      }),
+    after(async () => {
+      const audit = await getDocumentsConfig().catch(() => null);
+      await Promise.all([
+        audit
+          ? writeAuditLog(
+              audit,
+              admin.$id,
+              `submission.${input.data.decision}`,
+              submissionId,
+              {
+                score: input.data.score === "" ? null : input.data.score,
+                feedback: effectiveFeedback,
+                enrollmentId,
+                studentId,
+                generatedCertificates,
+              },
+              "submission"
+            )
+          : Promise.resolve(),
+        sendCrewlineEmail({
+          userId: studentId,
+          subject: `Crewline project review update: ${input.data.decision.replaceAll("_", " ")}`,
+          html: submissionReviewEmail({
+            decision: input.data.decision,
+            feedback: effectiveFeedback,
+            certificatesIssued: generatedCertificates,
+          }),
+        }).catch((err) => console.error("[review] Async email error:", err)),
+      ]);
     });
 
     return NextResponse.json({ reviewed: true, certificatesIssued: generatedCertificates });

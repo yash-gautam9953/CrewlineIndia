@@ -3,7 +3,7 @@ import { getSessionUser } from "@/lib/appwrite/session";
 
 export async function getAdminUser() {
   const session = await getSessionUser();
-  if (!session || !session.user.emailVerification) return null;
+  if (!session) return null;
   return isAdminIdentity(session.user.$id) ? session.user : null;
 }
 

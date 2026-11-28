@@ -63,14 +63,23 @@ const nextConfig: NextConfig = {
     "/api/admin/documents/*": [
       "./node_modules/@fontsource/inter/files/inter-latin-{400,700}-normal.woff2",
       "./node_modules/@fontsource/poppins/files/poppins-latin-{600,700}-normal.woff2",
+      "./public/brand-logo.png",
+      "./public/yash-sign.png",
+      "./public/crewline-badge-transparent.png",
     ],
     "/api/applications": [
       "./node_modules/@fontsource/inter/files/inter-latin-{400,700}-normal.woff2",
       "./node_modules/@fontsource/poppins/files/poppins-latin-{600,700}-normal.woff2",
+      "./public/brand-logo.png",
+      "./public/yash-sign.png",
+      "./public/crewline-badge-transparent.png",
     ],
     "/api/admin/submissions/**": [
       "./node_modules/@fontsource/inter/files/inter-latin-{400,700}-normal.woff2",
       "./node_modules/@fontsource/poppins/files/poppins-latin-{600,700}-normal.woff2",
+      "./public/brand-logo.png",
+      "./public/yash-sign.png",
+      "./public/crewline-badge-transparent.png",
     ],
   },
   async headers() {

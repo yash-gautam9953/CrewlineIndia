@@ -55,7 +55,6 @@ export async function POST(request: Request) {
   if ((await checkRateLimit(request, "task-submit", 15)).limited) return NextResponse.json({ error: "Too many submissions. Wait a minute and try again." }, { status: 429 });
   const session = await getSessionUser();
   if (!session) return NextResponse.json({ error: "Please sign in to submit your work." }, { status: 401 });
-  if (!session.user.emailVerification) return NextResponse.json({ error: "Verify your email address before submitting project work." }, { status: 403 });
   const { values, files } = await projectFiles(request);
   const input = schema.safeParse(values);
   if (!input.success) {

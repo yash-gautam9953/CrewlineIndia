@@ -1,4 +1,6 @@
 import "server-only";
+import { cache } from "react";
+import { unstable_cache } from "next/cache";
 import { Query } from "node-appwrite";
 import { createPrivilegedAppwriteClient } from "@/lib/appwrite/server";
 import { getAppwriteResources } from "@/lib/appwrite/resources";
@@ -34,7 +36,7 @@ export type DocumentSnapshot = {
 
 export type DocumentPreparationOptions = { offerDetails?: { startDate?: string; duration?: string; workMode?: string; stipend?: string; terms?: string }; reissueFromId?: string; reissueReason?: string };
 
-export async function readSignatorySettings() {
+async function fetchSignatorySettings() {
   const service = createPrivilegedAppwriteClient();
   if (!service) throw new Error("Signatory settings storage is not configured.");
   const { tables } = await getAppwriteResources();
@@ -53,6 +55,24 @@ export async function readSignatorySettings() {
     signatureFileId: typeof settings.signatureFileId === "string" ? settings.signatureFileId : "",
   };
 }
+
+const getCachedSignatorySettings = unstable_cache(
+  async () => fetchSignatorySettings(),
+  ["crewline-signatory-settings"],
+  { revalidate: 120, tags: ["signatory-settings"] }
+);
+
+export const readSignatorySettings = cache(async () => {
+  try {
+    return await getCachedSignatorySettings();
+  } catch (err) {
+    // Only bypass cache wrapper when Next incrementalCache is missing; propagate real config errors
+    if (err instanceof Error && err.message.includes("incrementalCache")) {
+      return fetchSignatorySettings();
+    }
+    throw err;
+  }
+});
 
 export function normalizeWorkMode(mode: string | undefined | null): string {
   const raw = (mode || "Virtual / Remote").trim();

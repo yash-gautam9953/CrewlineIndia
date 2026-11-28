@@ -1,8 +1,9 @@
 "use client";
 
-import { FormEvent, useState } from "react";
+import { FormEvent, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { Upload } from "lucide-react";
+import { LoaderCircle, Upload } from "lucide-react";
+import { readApiResponse } from "@/lib/http-client";
 
 export function AdminTaskForm({
   internshipId,
@@ -11,11 +12,17 @@ export function AdminTaskForm({
 }) {
   const router = useRouter();
   const [error, setError] = useState("");
+  const [message, setMessage] = useState("");
   const [busy, setBusy] = useState(false);
+  const [isRefreshing, startTransition] = useTransition();
+  const submittingRef = useRef(false);
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    if (submittingRef.current) return;
+    submittingRef.current = true;
     setError("");
+    setMessage("");
     setBusy(true);
     try {
       const formElement = event.currentTarget;
@@ -25,13 +32,16 @@ export function AdminTaskForm({
         throw new Error("Please select a Task PDF file.");
       }
       const response = await fetch("/api/admin/tasks", { method: "POST", body: form });
-      const result = await response.json();
-      if (!response.ok) throw new Error(result.error ?? "Could not upload Task PDF.");
+      await readApiResponse(response, "Could not upload Task PDF.");
       formElement.reset();
-      router.refresh();
+      setMessage("Task PDF uploaded successfully.");
+      startTransition(() => {
+        router.refresh();
+      });
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "Could not upload Task PDF.");
     } finally {
+      submittingRef.current = false;
       setBusy(false);
     }
   }
@@ -54,12 +64,17 @@ export function AdminTaskForm({
           {error}
         </p>
       )}
+      {message && (
+        <p role="status" className="rounded-xl bg-emerald-50 p-3 text-sm text-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-300">
+          {message}
+        </p>
+      )}
       <button
-        disabled={busy}
+        disabled={busy || isRefreshing}
         className="admin-btn-primary inline-flex min-h-11 items-center gap-2 rounded-xl bg-[#1769D2] px-5 text-sm font-semibold text-white border-transparent hover:bg-[#123B70] disabled:opacity-60"
       >
-        <Upload size={16} className="text-white" />
-        {busy ? "Uploading…" : "Upload Task PDF"}
+        {busy || isRefreshing ? <LoaderCircle size={16} className="animate-spin text-white" /> : <Upload size={16} className="text-white" />}
+        {busy ? "Uploading…" : isRefreshing ? "Updating…" : "Upload Task PDF"}
       </button>
     </form>
   );

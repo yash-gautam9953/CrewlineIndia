@@ -1,4 +1,5 @@
 import "server-only";
+import { cache } from "react";
 import { cookies } from "next/headers";
 import { Account, Client } from "node-appwrite";
 import { resolveAppwriteEndpoint, resolveAppwriteProjectId } from "./project";
@@ -17,7 +18,7 @@ export function createSessionClient(secret: string) {
   return { client, account: new Account(client) };
 }
 
-export async function getSessionUser() {
+export const getSessionUser = cache(async () => {
   const endpoint = resolveAppwriteEndpoint();
   const projectId = resolveAppwriteProjectId();
   if (!projectId || !endpoint) return null;
@@ -31,4 +32,4 @@ export async function getSessionUser() {
   } catch {
     return null;
   }
-}
+});

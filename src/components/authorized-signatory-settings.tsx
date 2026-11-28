@@ -1,31 +1,35 @@
 "use client";
 
-import { FormEvent, useEffect, useState } from "react";
+import { FormEvent, useEffect, useRef, useState } from "react";
 import { CheckCircle2, LoaderCircle, Save } from "lucide-react";
 
-type Settings = { configured: boolean; name: string; designation: string };
+export type SignatorySettingsData = { configured: boolean; name: string; designation: string };
 
-export function AuthorizedSignatorySettings() {
-  const [settings, setSettings] = useState<Settings | null>(null);
-  const [name, setName] = useState("");
-  const [designation, setDesignation] = useState("");
+export function AuthorizedSignatorySettings({ initialSettings }: { initialSettings?: SignatorySettingsData | null }) {
+  const [settings, setSettings] = useState<SignatorySettingsData | null>(initialSettings ?? null);
+  const [name, setName] = useState(initialSettings?.name ?? "");
+  const [designation, setDesignation] = useState(initialSettings?.designation ?? "");
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
+  const submittingRef = useRef(false);
 
   useEffect(() => {
+    if (initialSettings) return;
     void fetch("/api/admin/documents/signatory", { cache: "no-store" })
       .then((res) => res.json())
-      .then((value: Settings) => {
+      .then((value: SignatorySettingsData) => {
         setSettings(value);
         if (value.name) setName(value.name);
         if (value.designation) setDesignation(value.designation);
       })
       .catch(() => setSettings({ configured: false, name: "", designation: "" }));
-  }, []);
+  }, [initialSettings]);
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    if (submittingRef.current) return;
+    submittingRef.current = true;
     setError("");
     setMessage("");
     setBusy(true);
@@ -42,6 +46,7 @@ export function AuthorizedSignatorySettings() {
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "Could not save signatory settings.");
     } finally {
+      submittingRef.current = false;
       setBusy(false);
     }
   }

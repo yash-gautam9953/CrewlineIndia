@@ -81,27 +81,29 @@ export async function discoverAppwriteResources(client: ResourceDiscoveryClient)
     throw new AppwriteResourceError("NOT_CONFIGURED", "Appwrite project ID and database ID are required.");
   }
 
-  // Validate that the configured database actually exists in the configured Appwrite project
-  let database: { $id: string; name: string };
-  try {
-    database = await tablesDB.get({ databaseId });
-  } catch {
+  // Validate database association and fetch tables + buckets concurrently (1 round trip)
+  const settleError = async <T,>(promise: Promise<T>): Promise<T | Error> => {
+    try {
+      return await promise;
+    } catch (err) {
+      return err instanceof Error ? err : new Error(String(err));
+    }
+  };
+  const [databaseResult, tablesResult, bucketsResult] = await Promise.all([
+    tablesDB.get({ databaseId }).catch(() => null),
+    settleError(tablesDB.listTables({ databaseId, queries: [Query.limit(100)], total: true })),
+    settleError(storage.listBuckets({ queries: [Query.limit(100)], total: true })),
+  ]);
+
+  if (!databaseResult || databaseResult.$id !== databaseId) {
     throw new AppwriteResourceError(
       "ASSOCIATION_MISMATCH",
-      `Database '${databaseId}' could not be accessed in Appwrite project '${projectId}'.`
-    );
-  }
-  if (!database || database.$id !== databaseId) {
-    throw new AppwriteResourceError(
-      "ASSOCIATION_MISMATCH",
-      `Database '${databaseId}' does not match the configured Appwrite project.`
+      `Database '${databaseId}' could not be accessed or does not match Appwrite project '${projectId}'.`
     );
   }
 
-  const [tablesResult, bucketsResult] = await Promise.all([
-    tablesDB.listTables({ databaseId, queries: [Query.limit(100)], total: true }),
-    storage.listBuckets({ queries: [Query.limit(100)], total: true }),
-  ]);
+  if (tablesResult instanceof Error) throw tablesResult;
+  if (bucketsResult instanceof Error) throw bucketsResult;
 
   const tablesList = tablesResult.tables ?? [];
   const bucketsList = bucketsResult.buckets ?? [];

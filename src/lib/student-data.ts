@@ -14,30 +14,111 @@ export async function getStudentData(userId: string) {
   const taskTable = tables.tasks;
   const submissionTable = tables.submissions;
   const taskAssignmentsTable = tables.taskAssignments;
+  const reviewsTable = tables.reviews;
+  const paymentsTable = tables.payments;
 
-  const [profiles, applications, enrollmentRows] = await Promise.all([
-    service.tablesDB.listRows({ databaseId: service.databaseId, tableId: profileTable, queries: [Query.equal("authUserId", userId), Query.limit(1)] }),
-    service.tablesDB.listRows({ databaseId: service.databaseId, tableId: applicationTable, queries: [Query.equal("studentId", userId), Query.orderDesc("$createdAt"), Query.limit(50)] }),
-    enrollmentTable ? service.tablesDB.listRows({ databaseId: service.databaseId, tableId: enrollmentTable, queries: [Query.equal("studentId", userId), Query.orderDesc("$createdAt"), Query.limit(50)] }) : Promise.resolve({ rows: [], total: 0 }),
+  // Wave 1: Execute all user-scoped queries in parallel (collapsing 4 sequential hops into 1)
+  const [profiles, applications, enrollmentRows, submissionRows, paymentRows] = await Promise.all([
+    service.tablesDB.listRows({
+      databaseId: service.databaseId,
+      tableId: profileTable,
+      queries: [
+        Query.equal("authUserId", userId),
+        Query.limit(1),
+        Query.select(["$id", "authUserId", "fullName", "phone", "college", "course", "currentYear", "city", "profileStatus"]),
+      ],
+    }),
+    service.tablesDB.listRows({
+      databaseId: service.databaseId,
+      tableId: applicationTable,
+      queries: [
+        Query.equal("studentId", userId),
+        Query.orderDesc("$createdAt"),
+        Query.limit(50),
+        Query.select(["$id", "$createdAt", "internshipId", "status", "offerStatus"]),
+      ],
+    }),
+    enrollmentTable
+      ? service.tablesDB.listRows({
+          databaseId: service.databaseId,
+          tableId: enrollmentTable,
+          queries: [Query.equal("studentId", userId), Query.orderDesc("$createdAt"), Query.limit(50)],
+        })
+      : Promise.resolve({ rows: [], total: 0 }),
+    submissionTable
+      ? service.tablesDB.listRows({
+          databaseId: service.databaseId,
+          tableId: submissionTable,
+          queries: [Query.equal("studentId", userId), Query.orderDesc("$createdAt"), Query.limit(100)],
+        })
+      : Promise.resolve({ rows: [], total: 0 }),
+    paymentsTable
+      ? service.tablesDB.listRows({
+          databaseId: service.databaseId,
+          tableId: paymentsTable,
+          queries: [Query.equal("studentId", userId), Query.limit(100)],
+        })
+      : Promise.resolve({ rows: [], total: 0 }),
   ]);
+
   const rows = applications.rows;
-  const internshipIds = [...new Set(rows.map((row) => row.internshipId))];
-  const internshipResults = await Promise.all(internshipIds.map(async (id) => {
-    try { return await service.tablesDB.getRow({ databaseId: service.databaseId, tableId: internshipTable, rowId: id }); }
-    catch { return null; }
-  }));
-  const internships = new Map(internshipResults.filter(Boolean).map((row) => [row!.$id, row as typeof internshipResults[number] & Record<string, unknown>]));
   const enrollments = enrollmentRows.rows;
   const activeEnrollments = enrollments.filter((row) => row.status === "active" || row.status === "completed");
-  const enrolledPrograms = [...new Set(activeEnrollments.map((row) => String(row.internshipId)))];
-  const allTasks = taskTable && enrolledPrograms.length ? (await service.tablesDB.listRows({ databaseId: service.databaseId, tableId: taskTable, queries: [Query.equal("internshipId", enrolledPrograms), Query.equal("isPublished", true), Query.orderAsc("sequence"), Query.limit(100)] })).rows : [];
-  const selectedTaskIds = taskAssignmentsTable && allTasks.length ? new Set((await service.tablesDB.listRows({ databaseId: service.databaseId, tableId: taskAssignmentsTable, queries: [Query.equal("studentId", userId), Query.equal("taskId", allTasks.map((task) => task.$id)), Query.limit(100)] })).rows.map((row) => String(row.taskId))) : new Set<string>();
+  const internshipIds = [...new Set([...rows.map((row) => String(row.internshipId)), ...enrollments.map((row) => String(row.internshipId))])].filter(Boolean);
+  const enrolledPrograms = [...new Set(activeEnrollments.map((row) => String(row.internshipId)))].filter(Boolean);
+  const submissions = submissionRows.rows;
+  const payments = paymentRows.rows;
+  const submissionIds = submissions.map((row) => row.$id);
+
+  // Wave 2: Batch-fetch internships, tasks, and reviews concurrently
+  const [internshipList, tasksResult, reviewsResult] = await Promise.all([
+    internshipIds.length
+      ? service.tablesDB.listRows({
+          databaseId: service.databaseId,
+          tableId: internshipTable,
+          queries: [
+            Query.equal("$id", internshipIds),
+            Query.limit(100),
+            Query.select(["$id", "title", "domain"]),
+          ],
+        }).catch(() => ({ rows: [] }))
+      : Promise.resolve({ rows: [] }),
+    taskTable && enrolledPrograms.length
+      ? service.tablesDB.listRows({
+          databaseId: service.databaseId,
+          tableId: taskTable,
+          queries: [Query.equal("internshipId", enrolledPrograms), Query.equal("isPublished", true), Query.orderAsc("sequence"), Query.limit(100)],
+        })
+      : Promise.resolve({ rows: [] }),
+    reviewsTable && submissionIds.length
+      ? service.tablesDB.listRows({
+          databaseId: service.databaseId,
+          tableId: reviewsTable,
+          queries: [Query.equal("submissionId", submissionIds), Query.orderDesc("reviewedAt"), Query.limit(100)],
+        })
+      : Promise.resolve({ rows: [] }),
+  ]);
+
+  const internships = new Map(internshipList.rows.map((row) => [row.$id, row as typeof row & Record<string, unknown>]));
+  const allTasks = tasksResult.rows;
+  const reviews = reviewsResult.rows;
+
+  // Wave 3 (conditional): Only query taskAssignments when any task uses selected_students mode
+  const hasSelectedMode = allTasks.some((task) => (task as typeof task & Record<string, unknown>).assignmentMode === "selected_students");
+  const selectedTaskIds =
+    taskAssignmentsTable && hasSelectedMode && allTasks.length
+      ? new Set(
+          (
+            await service.tablesDB.listRows({
+              databaseId: service.databaseId,
+              tableId: taskAssignmentsTable,
+              queries: [Query.equal("studentId", userId), Query.equal("taskId", allTasks.map((task) => task.$id)), Query.limit(100)],
+            })
+          ).rows.map((row) => String(row.taskId))
+        )
+      : new Set<string>();
+
   const tasks = allTasks.filter((task) => (task as typeof task & Record<string, unknown>).assignmentMode !== "selected_students" || selectedTaskIds.has(task.$id));
-  const submissions = submissionTable ? (await service.tablesDB.listRows({ databaseId: service.databaseId, tableId: submissionTable, queries: [Query.equal("studentId", userId), Query.orderDesc("$createdAt"), Query.limit(100)] })).rows : [];
-  const reviewsTable = tables.reviews;
-  const reviews = reviewsTable && submissions.length ? (await service.tablesDB.listRows({ databaseId: service.databaseId, tableId: reviewsTable, queries: [Query.equal("submissionId", submissions.map((row) => row.$id)), Query.orderDesc("reviewedAt"), Query.limit(100)] })).rows : [];
-  const paymentsTable = tables.payments;
-  const payments = paymentsTable && enrollments.length ? (await service.tablesDB.listRows({ databaseId: service.databaseId, tableId: paymentsTable, queries: [Query.equal("studentId", userId), Query.limit(100)] })).rows : [];
   const latestSubmissionByTask = new Map<string, (typeof submissions)[number]>();
   const submissionHistoryByTask = new Map<string, (typeof submissions)[number][]>();
   for (const row of submissions) if (!latestSubmissionByTask.has(String(row.taskId))) latestSubmissionByTask.set(String(row.taskId), row);
@@ -45,6 +126,7 @@ export async function getStudentData(userId: string) {
     const key = String(row.taskId);
     submissionHistoryByTask.set(key, [...(submissionHistoryByTask.get(key) ?? []), row]);
   }
+
   return {
     profile: profiles.rows[0] as (typeof profiles.rows)[number] & Record<string, unknown> | undefined,
     applications: rows.map((row) => ({
@@ -73,9 +155,9 @@ export async function getStudentData(userId: string) {
       const submissionRecord = submission as (typeof submission & Record<string, unknown>) | undefined;
       const submittedBusinessDate = typeof submissionRecord?.submittedAt === "string" ? new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Kolkata", year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date(submissionRecord.submittedAt)) : "";
       const late = Boolean(submission && (submission.isLate || (submittedBusinessDate && enrollmentData?.submissionDeadlineAt && submittedBusinessDate > String(enrollmentData.submissionDeadlineAt).slice(0, 10))));
-      const attachmentList = (submission: (typeof submissions)[number] | undefined) => {
-        if (!submission) return [];
-        const record = submission as typeof submission & Record<string, unknown>;
+      const attachmentList = (sub: (typeof submissions)[number] | undefined) => {
+        if (!sub) return [];
+        const record = sub as typeof sub & Record<string, unknown>;
         try { return JSON.parse(String(record.fileNames ?? "[]")) as { id: string; name: string }[]; } catch { return []; }
       };
       const history = (submissionHistoryByTask.get(task.$id) ?? []).map((version) => {

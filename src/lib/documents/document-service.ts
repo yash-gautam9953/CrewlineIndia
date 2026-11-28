@@ -24,27 +24,39 @@ export async function getDocumentsConfig() {
   };
 }
 
+let cachedAssetsPromise: Promise<{
+  logo: string;
+  signature: string;
+  badge: string | undefined;
+  fonts: { interRegular: string; interBold: string; poppinsSemiBold: string; poppinsBold: string };
+}> | null = null;
+
 export async function getDocumentAssets() {
-  const [logoBytes, signatureBytes, badgeBytes, interRegular, interBold, poppinsSemiBold, poppinsBold] = await Promise.all([
-    readFile(join(process.cwd(), "public", "brand-logo.png")),
-    readFile(join(process.cwd(), "public", "yash-sign.png")),
-    readFile(join(process.cwd(), "public", "crewline-badge-transparent.png")).catch(() => Buffer.from("")),
-    readFile(join(process.cwd(), "node_modules", "@fontsource", "inter", "files", "inter-latin-400-normal.woff2")),
-    readFile(join(process.cwd(), "node_modules", "@fontsource", "inter", "files", "inter-latin-700-normal.woff2")),
-    readFile(join(process.cwd(), "node_modules", "@fontsource", "poppins", "files", "poppins-latin-600-normal.woff2")),
-    readFile(join(process.cwd(), "node_modules", "@fontsource", "poppins", "files", "poppins-latin-700-normal.woff2")),
-  ]);
-  return {
-    logo: `data:image/png;base64,${logoBytes.toString("base64")}`,
-    signature: `data:image/png;base64,${Buffer.from(signatureBytes).toString("base64")}`,
-    badge: badgeBytes.length ? `data:image/png;base64,${badgeBytes.toString("base64")}` : undefined,
-    fonts: {
-      interRegular: `data:font/woff2;base64,${interRegular.toString("base64")}`,
-      interBold: `data:font/woff2;base64,${interBold.toString("base64")}`,
-      poppinsSemiBold: `data:font/woff2;base64,${poppinsSemiBold.toString("base64")}`,
-      poppinsBold: `data:font/woff2;base64,${poppinsBold.toString("base64")}`,
-    },
-  };
+  if (!cachedAssetsPromise) {
+    cachedAssetsPromise = Promise.all([
+      readFile(join(process.cwd(), "public", "brand-logo.png")),
+      readFile(join(process.cwd(), "public", "yash-sign.png")),
+      readFile(join(process.cwd(), "public", "crewline-badge-transparent.png")).catch(() => Buffer.from("")),
+      readFile(join(process.cwd(), "node_modules", "@fontsource", "inter", "files", "inter-latin-400-normal.woff2")),
+      readFile(join(process.cwd(), "node_modules", "@fontsource", "inter", "files", "inter-latin-700-normal.woff2")),
+      readFile(join(process.cwd(), "node_modules", "@fontsource", "poppins", "files", "poppins-latin-600-normal.woff2")),
+      readFile(join(process.cwd(), "node_modules", "@fontsource", "poppins", "files", "poppins-latin-700-normal.woff2")),
+    ]).then(([logoBytes, signatureBytes, badgeBytes, interRegular, interBold, poppinsSemiBold, poppinsBold]) => ({
+      logo: `data:image/png;base64,${logoBytes.toString("base64")}`,
+      signature: `data:image/png;base64,${Buffer.from(signatureBytes).toString("base64")}`,
+      badge: badgeBytes.length ? `data:image/png;base64,${badgeBytes.toString("base64")}` : undefined,
+      fonts: {
+        interRegular: `data:font/woff2;base64,${interRegular.toString("base64")}`,
+        interBold: `data:font/woff2;base64,${interBold.toString("base64")}`,
+        poppinsSemiBold: `data:font/woff2;base64,${poppinsSemiBold.toString("base64")}`,
+        poppinsBold: `data:font/woff2;base64,${poppinsBold.toString("base64")}`,
+      },
+    })).catch((err) => {
+      cachedAssetsPromise = null;
+      throw err;
+    });
+  }
+  return cachedAssetsPromise;
 }
 
 export async function storeIssuedDocument(snapshot: DocumentSnapshot, html: string, issuedBy: string) {
@@ -174,57 +186,61 @@ export async function autoIssueCompletionCertificatesForApprovedSubmission(submi
   }) as Record<string, unknown>;
 
   const enrollmentId = String(submission.enrollmentId);
-  const assets = await getDocumentAssets();
+  let cachedAssets: Awaited<ReturnType<typeof getDocumentAssets>> | null = null;
+  const loadAssets = async () => (cachedAssets ??= await getDocumentAssets());
 
-  // 1. Internship Completion Certificate
-  let internshipDocId = "";
-  const internshipEventKey = getEventKey("internship_completion", enrollmentId);
-  const existingInternship = await config.tablesDB.listRows({
-    databaseId: config.databaseId,
-    tableId: config.tableId,
-    queries: [Query.equal("eventKey", internshipEventKey), Query.limit(1)],
-  });
-  if (existingInternship.rows[0]) {
-    internshipDocId = existingInternship.rows[0].$id;
-  } else if (isDocumentFunctionConfigured()) {
-    const fnResult = await invokeDocumentFunction<{ documentId: string }>({
-      documentType: "internship_completion",
-      enrollmentId,
-      issuedBy,
+  // Issue both completion certificates concurrently to halve PDF & storage wait latency
+  const issueInternshipCert = async () => {
+    const internshipEventKey = getEventKey("internship_completion", enrollmentId);
+    const existingInternship = await config.tablesDB.listRows({
+      databaseId: config.databaseId,
+      tableId: config.tableId,
+      queries: [Query.equal("eventKey", internshipEventKey), Query.limit(1)],
     });
-    internshipDocId = fnResult.documentId;
-  } else {
+    if (existingInternship.rows[0]) {
+      return existingInternship.rows[0].$id;
+    }
+    if (isDocumentFunctionConfigured()) {
+      const fnResult = await invokeDocumentFunction<{ documentId: string }>({
+        documentType: "internship_completion",
+        enrollmentId,
+        issuedBy,
+      });
+      return fnResult.documentId;
+    }
     const docId = generateDocumentId("internship_completion");
     const snapshot = await prepareDocument("internship_completion", enrollmentId, docId);
-    const html = await renderDocumentHtml(snapshot, assets);
+    const html = await renderDocumentHtml(snapshot, await loadAssets());
     const row = await storeIssuedDocument(snapshot, html, issuedBy);
-    internshipDocId = row.$id;
-  }
+    return row.$id;
+  };
 
-  // 2. Project Completion Certificate
-  let projectDocId = "";
-  const projectEventKey = getEventKey("project_completion", submissionId);
-  const existingProject = await config.tablesDB.listRows({
-    databaseId: config.databaseId,
-    tableId: config.tableId,
-    queries: [Query.equal("eventKey", projectEventKey), Query.limit(1)],
-  });
-  if (existingProject.rows[0]) {
-    projectDocId = existingProject.rows[0].$id;
-  } else if (isDocumentFunctionConfigured()) {
-    const fnResult = await invokeDocumentFunction<{ documentId: string }>({
-      documentType: "project_completion",
-      submissionId,
-      issuedBy,
+  const issueProjectCert = async () => {
+    const projectEventKey = getEventKey("project_completion", submissionId);
+    const existingProject = await config.tablesDB.listRows({
+      databaseId: config.databaseId,
+      tableId: config.tableId,
+      queries: [Query.equal("eventKey", projectEventKey), Query.limit(1)],
     });
-    projectDocId = fnResult.documentId;
-  } else {
+    if (existingProject.rows[0]) {
+      return existingProject.rows[0].$id;
+    }
+    if (isDocumentFunctionConfigured()) {
+      const fnResult = await invokeDocumentFunction<{ documentId: string }>({
+        documentType: "project_completion",
+        submissionId,
+        issuedBy,
+      });
+      return fnResult.documentId;
+    }
     const docId = generateDocumentId("project_completion");
     const snapshot = await prepareDocument("project_completion", submissionId, docId);
-    const html = await renderDocumentHtml(snapshot, assets);
+    const html = await renderDocumentHtml(snapshot, await loadAssets());
     const row = await storeIssuedDocument(snapshot, html, issuedBy);
-    projectDocId = row.$id;
-  }
+    return row.$id;
+  };
+
+  const [internshipDocId, projectDocId] = await Promise.all([issueInternshipCert(), issueProjectCert()]);
 
   return { internshipDocId, projectDocId };
 }

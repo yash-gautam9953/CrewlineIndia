@@ -23,7 +23,6 @@ export async function POST(request: Request, { params }: { params: Promise<{ pay
   if ((await checkRateLimit(request, "payment-submit", 5)).limited) return NextResponse.json({ error: "Too many payment submissions. Try again shortly." }, { status: 429 });
   const session = await getSessionUser();
   if (!session) return NextResponse.json({ error: "Sign in to submit payment details." }, { status: 401 });
-  if (!session.user.emailVerification) return NextResponse.json({ error: "Verify your email address before submitting payment proof." }, { status: 403 });
   const form = await request.formData();
   const reference = String(form.get("transactionReference") ?? "").trim();
   const proof = form.get("proof");

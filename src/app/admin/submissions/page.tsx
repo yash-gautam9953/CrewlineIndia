@@ -45,10 +45,10 @@ export default async function AdminSubmissionsPage({ searchParams }: { searchPar
 
   const [submissions, tasks, domains, payments] = await Promise.all([
     service.tablesDB.listRows({ databaseId: service.databaseId, tableId: submissionsTable, queries }),
-    service.tablesDB.listRows({ databaseId: service.databaseId, tableId: tasksTable, queries: [Query.limit(100)] }),
-    service.tablesDB.listRows({ databaseId: service.databaseId, tableId: submissionsTable, queries: [Query.limit(100)] }),
+    service.tablesDB.listRows({ databaseId: service.databaseId, tableId: tasksTable, queries: [Query.limit(100), Query.select(["$id", "title", "maxScore"])] }),
+    service.tablesDB.listRows({ databaseId: service.databaseId, tableId: submissionsTable, queries: [Query.limit(100), Query.select(["domain"])] }),
     paymentsTable
-      ? service.tablesDB.listRows({ databaseId: service.databaseId, tableId: paymentsTable, queries: [Query.limit(100)] })
+      ? service.tablesDB.listRows({ databaseId: service.databaseId, tableId: paymentsTable, queries: [Query.limit(100), Query.select(["enrollmentId", "status", "currency", "amountDue"])] })
       : Promise.resolve({ rows: [], total: 0 }),
   ]);
 

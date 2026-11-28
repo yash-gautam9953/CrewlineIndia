@@ -2,42 +2,120 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { FormEvent, useState } from "react";
-import { LoaderCircle } from "lucide-react";
+import { FormEvent, useRef, useState } from "react";
+import { readApiResponse } from "@/lib/http-client";
+import { Button } from "@/components/ui/button";
+import { PasswordInput } from "@/components/ui/password-input";
+import { alertErrorClass, formInputLgClass, formLabelLgClass } from "@/components/ui/form-controls";
 
 export function AuthForm({ mode, nextPath }: { mode: "login" | "register"; nextPath?: string }) {
   const router = useRouter();
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
+  const submittingRef = useRef(false);
   const isRegister = mode === "register";
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    if (submittingRef.current) return;
+    submittingRef.current = true;
     setError("");
     setBusy(true);
     try {
       const data = Object.fromEntries(new FormData(event.currentTarget).entries());
-      const response = await fetch(`/api/auth/${mode}`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(data) });
-      const result = await response.json();
-      if (!response.ok) throw new Error(result.error ?? "Request failed.");
+      const response = await fetch(`/api/auth/${mode}`, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify(data),
+      });
+      const result = await readApiResponse<{ error?: string; redirectTo?: string }>(response, "Request failed.");
       const requested = nextPath && nextPath.startsWith("/") && !nextPath.startsWith("//") ? nextPath : undefined;
       router.replace(requested ?? result.redirectTo ?? "/account");
       router.refresh();
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : "Request failed. Please try again.");
     } finally {
+      submittingRef.current = false;
       setBusy(false);
     }
   }
 
-  const inputClass = "focus-ring mt-2 min-h-12 w-full rounded-xl border border-slate-200 bg-white px-4 text-sm text-navy placeholder:text-slate-400 dark:border-slate-700 dark:bg-[#1C2940] dark:text-[#F1F5FB] dark:placeholder:text-slate-500";
-  return <form onSubmit={submit} className="mt-8 space-y-5">
-    {isRegister && <label className="block text-sm font-medium text-slate-700 dark:text-slate-300">Full name<input name="fullName" autoComplete="name" required minLength={2} maxLength={160} className={inputClass} placeholder="Your name as it should appear on your offer" /></label>}
-    <label className="block text-sm font-medium text-slate-700 dark:text-slate-300">Email<input name="email" autoComplete="email" type="email" required className={inputClass} placeholder="you@example.com" /></label>
-    <label className="block text-sm font-medium text-slate-700 dark:text-slate-300">Password<input name="password" autoComplete={isRegister ? "new-password" : "current-password"} type="password" required minLength={isRegister ? 8 : undefined} maxLength={128} className={inputClass} placeholder={isRegister ? "At least 8 characters" : "Your password"} /></label>
-    {error && <p role="alert" className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700 dark:border-red-900/60 dark:bg-red-950/40 dark:text-red-300">{error}</p>}
-    <button disabled={busy} className="inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-xl bg-brand px-5 text-sm font-semibold text-white hover:bg-blue-600 disabled:cursor-not-allowed disabled:opacity-65" type="submit">{busy && <LoaderCircle size={17} className="animate-spin" />}{busy ? "Please wait…" : isRegister ? "Create student account" : "Sign in"}</button>
-    {!isRegister && <div className="text-right text-sm"><Link href="/forgot-password" className="font-medium text-brand hover:text-blue-700 dark:text-blue-400">Forgot password?</Link></div>}
-    <p className="pt-2 text-center text-sm text-slate-500 dark:text-[#A8B5C8]">{isRegister ? "Already registered?" : "New to Crewline?"} <Link href={isRegister ? "/login" : "/register"} className="font-semibold text-brand dark:text-blue-400">{isRegister ? "Sign in" : "Create an account"}</Link></p>
-  </form>;
+  return (
+    <form onSubmit={submit} className="mt-8 space-y-5">
+      {isRegister && (
+        <div>
+          <label htmlFor="auth-fullname" className={formLabelLgClass}>
+            Full name <span className="text-rose-600" aria-hidden="true">*</span>
+          </label>
+          <input
+            id="auth-fullname"
+            name="fullName"
+            autoComplete="name"
+            required
+            minLength={2}
+            maxLength={160}
+            className={formInputLgClass}
+            placeholder="Your name as it should appear on your offer"
+          />
+        </div>
+      )}
+
+      <div>
+        <label htmlFor="auth-email" className={formLabelLgClass}>
+          Email address <span className="text-rose-600" aria-hidden="true">*</span>
+        </label>
+        <input
+          id="auth-email"
+          name="email"
+          autoComplete="username"
+          type="email"
+          spellCheck={false}
+          required
+          className={formInputLgClass}
+          placeholder="you@example.com"
+        />
+      </div>
+
+      <div>
+        <label htmlFor="auth-password" className={formLabelLgClass}>
+          Password <span className="text-rose-600" aria-hidden="true">*</span>
+        </label>
+        <PasswordInput
+          id="auth-password"
+          name="password"
+          autoComplete={isRegister ? "new-password" : "current-password"}
+          required
+          minLength={isRegister ? 8 : undefined}
+          maxLength={128}
+          className="mt-2"
+          placeholder={isRegister ? "At least 8 characters" : "Your password"}
+        />
+      </div>
+
+      {error && (
+        <p role="alert" className={alertErrorClass}>
+          {error}
+        </p>
+      )}
+
+      <Button type="submit" variant="primary" size="lg" fullWidth loading={busy}>
+        {busy ? "Please wait…" : isRegister ? "Create student account" : "Sign in"}
+      </Button>
+
+      {!isRegister && (
+        <div className="text-right text-sm">
+          <Link href="/forgot-password" className="focus-ring rounded font-medium text-[#1769D2] hover:underline dark:text-blue-400">
+            Forgot password?
+          </Link>
+        </div>
+      )}
+
+      <p className="pt-2 text-center text-sm text-slate-500 dark:text-[#A8B5C8]">
+        {isRegister ? "Already registered?" : "New to Crewline?"}{" "}
+        <Link href={isRegister ? "/login" : "/register"} className="focus-ring rounded font-semibold text-[#1769D2] hover:underline dark:text-blue-400">
+          {isRegister ? "Sign in" : "Create an account"}
+        </Link>
+      </p>
+    </form>
+  );
 }

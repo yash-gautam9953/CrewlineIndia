@@ -517,21 +517,21 @@ export default async function InternshipDetailsPage({ params, searchParams }: Pr
 
         {/* SECTION D: UPI PAYMENT VIA GOOGLE FORM */}
         {payment && (
-          <section className="mt-8 rounded-3xl border border-slate-200/80 bg-white p-6 shadow-sm sm:p-8">
+          <section className="mt-8 rounded-3xl border border-slate-200/80 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-[#151F32] sm:p-8">
             <div className="flex flex-wrap items-center justify-between gap-2">
               <div>
-                <p className="text-xs font-bold uppercase tracking-[.18em] text-[#1769D2]">Step 2 · Payment Verification</p>
-                <h2 className="mt-1 text-xl font-bold text-[#101D35]">UPI Payment via Google Form</h2>
+                <p className="text-xs font-bold uppercase tracking-[.18em] text-[#1769D2] dark:text-[#2575E6]">Step 2 · Payment Verification</p>
+                <h2 className="mt-1 text-xl font-bold text-[#101D35] dark:text-[#F1F5FB]">UPI Payment via Google Form</h2>
               </div>
               <span
                 className={`rounded-full px-3 py-1 text-xs font-bold ${
                   paymentVerified
-                    ? "bg-emerald-100 text-emerald-800"
+                    ? "bg-emerald-100 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300"
                     : paymentStatus === "submitted"
-                      ? "bg-blue-100 text-blue-800"
+                      ? "bg-blue-100 text-blue-800 dark:bg-blue-950/60 dark:text-blue-300"
                       : paymentStatus === "rejected"
-                        ? "bg-red-100 text-red-800"
-                        : "bg-amber-100 text-amber-800"
+                        ? "bg-red-100 text-red-800 dark:bg-red-950/60 dark:text-red-300"
+                        : "bg-amber-100 text-amber-800 dark:bg-amber-950/60 dark:text-amber-300"
                 }`}
               >
                 {paymentVerified
@@ -571,31 +571,31 @@ export default async function InternshipDetailsPage({ params, searchParams }: Pr
         <section
           className={`mt-8 rounded-3xl border p-6 shadow-sm sm:p-8 ${
             internshipCertDoc
-              ? "border-emerald-200 bg-emerald-50/40"
-              : "border-slate-200/80 bg-white"
+              ? "border-emerald-200 bg-emerald-50/40 dark:border-emerald-800/60 dark:bg-emerald-950/20"
+              : "border-slate-200/80 bg-white dark:border-slate-800 dark:bg-[#151F32]"
           }`}
         >
           <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-center">
             <div className="flex items-start gap-3.5">
               <div
-                className={`flex h-11 w-11 items-center justify-center rounded-2xl ${
-                  internshipCertDoc ? "bg-emerald-100 text-emerald-800" : "bg-slate-100 text-slate-500"
+                className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl ${
+                  internshipCertDoc ? "bg-emerald-100 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300" : "bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-400"
                 }`}
               >
                 {internshipCertDoc ? <ShieldCheck size={22} /> : <Lock size={20} />}
               </div>
               <div>
-                <div className="flex items-center gap-2">
-                  <h2 className="text-lg font-bold text-[#101D35]">Internship Completion Certificate</h2>
+                <div className="flex flex-wrap items-center gap-2">
+                  <h2 className="text-lg font-bold text-[#101D35] dark:text-[#F1F5FB]">Internship Completion Certificate</h2>
                   <span
                     className={`rounded-full px-2.5 py-0.5 text-xs font-semibold ${
-                      internshipCertDoc ? "bg-emerald-100 text-emerald-800" : "bg-slate-100 text-slate-600"
+                      internshipCertDoc ? "bg-emerald-100 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300" : "bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300"
                     }`}
                   >
                     {internshipCertDoc ? "UNLOCKED" : "LOCKED"}
                   </span>
                 </div>
-                <p className="mt-1 text-xs text-slate-600">
+                <p className="mt-1 text-xs text-slate-600 dark:text-[#A8B5C8]">
                   {internshipCertDoc
                     ? `Issued on ${formatCrewlineDate(internshipCertDoc.issueDate)}. Verified credential ID: ${internshipCertDoc.$id}`
                     : "LOCKED — Submit your project and complete UPI payment. Unlocks when Admin approves both."}
@@ -613,7 +613,7 @@ export default async function InternshipDetailsPage({ params, searchParams }: Pr
                 <Download size={16} className="text-white" /> Download Certificate PDF
               </a>
             ) : (
-              <span className="inline-flex items-center gap-1.5 rounded-xl border border-slate-200 bg-slate-50 px-4 py-2 text-xs font-semibold text-slate-500">
+              <span className="inline-flex shrink-0 items-center gap-1.5 rounded-xl border border-slate-200 bg-slate-50 px-4 py-2 text-xs font-semibold text-slate-500 dark:border-slate-700 dark:bg-[#1C2940] dark:text-slate-400">
                 <Lock size={14} /> Locked until Approval
               </span>
             )}
@@ -623,31 +623,31 @@ export default async function InternshipDetailsPage({ params, searchParams }: Pr
         <section
           className={`mt-6 rounded-3xl border p-6 shadow-sm sm:p-8 ${
             projectCertDoc
-              ? "border-emerald-200 bg-emerald-50/40"
-              : "border-slate-200/80 bg-white"
+              ? "border-emerald-200 bg-emerald-50/40 dark:border-emerald-800/60 dark:bg-emerald-950/20"
+              : "border-slate-200/80 bg-white dark:border-slate-800 dark:bg-[#151F32]"
           }`}
         >
           <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-center">
             <div className="flex items-start gap-3.5">
               <div
-                className={`flex h-11 w-11 items-center justify-center rounded-2xl ${
-                  projectCertDoc ? "bg-emerald-100 text-emerald-800" : "bg-slate-100 text-slate-500"
+                className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl ${
+                  projectCertDoc ? "bg-emerald-100 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300" : "bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-400"
                 }`}
               >
                 {projectCertDoc ? <ShieldCheck size={22} /> : <Lock size={20} />}
               </div>
               <div>
-                <div className="flex items-center gap-2">
-                  <h2 className="text-lg font-bold text-[#101D35]">Project Completion Certificate</h2>
+                <div className="flex flex-wrap items-center gap-2">
+                  <h2 className="text-lg font-bold text-[#101D35] dark:text-[#F1F5FB]">Project Completion Certificate</h2>
                   <span
                     className={`rounded-full px-2.5 py-0.5 text-xs font-semibold ${
-                      projectCertDoc ? "bg-emerald-100 text-emerald-800" : "bg-slate-100 text-slate-600"
+                      projectCertDoc ? "bg-emerald-100 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300" : "bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300"
                     }`}
                   >
                     {projectCertDoc ? "UNLOCKED" : "LOCKED"}
                   </span>
                 </div>
-                <p className="mt-1 text-xs text-slate-600">
+                <p className="mt-1 text-xs text-slate-600 dark:text-[#A8B5C8]">
                   {projectCertDoc
                     ? `Issued on ${formatCrewlineDate(projectCertDoc.issueDate)}. Verified credential ID: ${projectCertDoc.$id}`
                     : "LOCKED — Submit your project and complete UPI payment. Unlocks when Admin approves both."}
@@ -665,7 +665,7 @@ export default async function InternshipDetailsPage({ params, searchParams }: Pr
                 <Download size={16} className="text-white" /> Download Certificate PDF
               </a>
             ) : (
-              <span className="inline-flex items-center gap-1.5 rounded-xl border border-slate-200 bg-slate-50 px-4 py-2 text-xs font-semibold text-slate-500">
+              <span className="inline-flex shrink-0 items-center gap-1.5 rounded-xl border border-slate-200 bg-slate-50 px-4 py-2 text-xs font-semibold text-slate-500 dark:border-slate-700 dark:bg-[#1C2940] dark:text-slate-400">
                 <Lock size={14} /> Locked until Approval
               </span>
             )}
